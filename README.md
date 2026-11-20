@@ -12,9 +12,13 @@ Nhật ký làm việc tự động cho các AI coding agent: **Claude Code, Gem
 ```
 2026/11-laptop.md                          ← tóm tắt, đọc nhanh
 2026/11-server-a.md
-raw/2026/11/laptop-claude-<session>.md     ← toàn bộ hội thoại (đã che bí mật)
+raw/2026/11/laptop-claude-<session>.md     ← hội thoại đã làm gọn, đọc thẳng được (đã che bí mật)
+meta/2026/11-laptop.jsonl                  ← số liệu mỗi session: thời gian làm thật, token, chi phí, tool
+archive/claude/2026/11/laptop-<sid>.jsonl.zst  ← transcript GỐC đầy đủ, nén (đã che bí mật, bỏ ảnh)
 tong-ket/2026-11.md
 ```
+
+`archive/` là nguồn gốc lâu dài: tóm tắt, số liệu, thống kê sau này đều tính lại được từ đây. Transcript gốc bỏ ảnh base64 rồi nén còn khoảng 5% (thực tế: 365MB → 18MB cho 86 session).
 
 ```
 ## 2026-11-18 15:20 · laptop · codex · my-project
@@ -40,8 +44,9 @@ Luồng xử lý:
    - Không có transcript thì dùng `git log` trong thời gian session. Session được resume chỉ tóm tắt phần mới.
 3. Tóm tắt bằng CLI có sẵn (`claude` → `gemini` → `codex`), chạy trong thư mục tạm, không cho dùng tool, không lưu session, có timeout 5 phút. Dữ liệu đi qua stdin (không lộ qua `ps`).
 4. Lưu bản đầy đủ vào `raw/` dạng text thường (đã che bí mật phổ biến; git tự nén khi lưu). Nếu cấu hình `age` thì nén + mã hoá thành `.gz.age`. Tóm tắt lỗi thì vẫn ghi mục kèm đường dẫn raw để tóm tắt lại sau.
-5. Append, commit, push dưới khoá (nhiều session cùng kết thúc không giẫm nhau); rebase hỏng thì tự abort, push lỗi thì thử lại và để lần sau đẩy tiếp.
-6. Khi mở session: pull repo dữ liệu, và (mặc định) cập nhật code `worklog-tool`.
+5. Lưu trữ dài hạn (`hooks/store.sh`): transcript gốc → `archive/` (che bí mật, bỏ ảnh, nén zstd hoặc gzip, mã hoá `age` nếu có cấu hình), và một dòng số liệu → `meta/` (`hooks/meta.jq`: thời gian làm thật, token theo model — Claude cộng theo `message.id` để không đếm trùng, chi phí do Claude Code tính, số lệnh tool, subagent).
+6. Append, commit, push dưới khoá (nhiều session cùng kết thúc không giẫm nhau); rebase hỏng thì tự abort, push lỗi thì thử lại và để lần sau đẩy tiếp.
+7. Khi mở session: pull repo dữ liệu, (mặc định) cập nhật code `worklog-tool`, và chạy `hooks/sweep.sh` (tối đa 1 lần/giờ) để lưu các transcript Claude Code / Codex còn sót — ví dụ khi cửa sổ bị đóng đột ngột nên hook kết thúc không chạy. `install.sh` chạy `sweep.sh --all` để lưu cả transcript cũ còn trên máy, và đặt `cleanupPeriodDays: 365` cho Claude Code (mặc định Claude Code xoá transcript sau 30 ngày) nếu bạn chưa tự đặt.
 
 ## Cài đặt
 
@@ -63,8 +68,8 @@ git clone https://github.com/<owner>/worklog-tool.git ~/worklog-tool
 | `WORKLOG_DIR` | `~/worklog` | Nơi clone repo dữ liệu |
 | `WORKLOG_SUMMARIZER` | tự chọn | `claude`, `gemini` hoặc `codex` — cố định CLI dùng để tóm tắt |
 | `WORKLOG_CLAUDE_MODEL` | `haiku` | Model khi tóm tắt bằng Claude |
-| `WORKLOG_RAW` | `1` | `0` = không lưu transcript gốc, chỉ tóm tắt |
-| `WORKLOG_RAW_MAX` | `20000000` | Bỏ qua file raw lớn hơn số byte này (chỉ giữ tóm tắt) |
+| `WORKLOG_RAW` | `1` | `0` = không lưu transcript (`raw/`, `archive/`), chỉ tóm tắt + số liệu `meta/` |
+| `WORKLOG_RAW_MAX` | `20000000` | Bỏ qua file raw/archive (sau nén) lớn hơn số byte này |
 | `WORKLOG_AGE_RECIPIENT` | — | (Tuỳ chọn) public key `age1...` để mã hoá file raw thành `.gz.age` — khi đó claude.ai không đọc được raw |
 | `WORKLOG_AGE_RECIPIENTS_FILE` | — | Hoặc file chứa nhiều public key `age` |
 | `WORKLOG_GIT_EMAIL` | hỏi khi cài | Email commit cho repo nhật ký (đặt riêng, không ảnh hưởng git global) |
@@ -86,6 +91,8 @@ Lỗi của tiến trình nền ghi ở `~/.local/state/worklog/core.log`. Chạ
 
 ```bash
 ~/worklog-tool/hooks/core.sh claude "$PWD" /đường/dẫn/transcript.jsonl "" <session_id>
+~/worklog-tool/hooks/sweep.sh --all          # lưu trữ mọi transcript chưa lưu trên máy
+jq -nRc --arg tool claude -f ~/worklog-tool/hooks/meta.jq < transcript.jsonl   # xem số liệu một session
 ```
 
 ## Gỡ cài đặt

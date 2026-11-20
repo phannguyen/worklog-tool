@@ -7,21 +7,12 @@ export WORKLOG_RUNNING=1
 TOOL="$1"; CWD="$2"; TRANSCRIPT="$3"; START="$4"; SID="$5"
 HERE="$(cd "$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")" && pwd)"
 . "$HERE/lib.sh"
+. "$HERE/store.sh"
 [ -d "$DATA/.git" ] || exit 0
 
 host=$(hostname -s)
-project=$(basename "$(git -C "$CWD" rev-parse --show-toplevel 2>/dev/null || echo "$CWD")")
+project=$(project_of "$CWD")
 WORK=$(mktemp -d); CLEANUP="$WORK"; trap 'rm -rf $CLEANUP' EXIT
-
-# Che bí mật phổ biến + bỏ ảnh base64 (best-effort, không thay được việc giữ repo private).
-sanitize() {
-  perl -pe '
-    s/("data"\s*:\s*\\?")[A-Za-z0-9+\/=]{1000,}/$1\[đã bỏ dữ liệu nhị phân]/g;
-    s/-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----/[ĐÃ CHE: private key]/g;
-    s/\b(?:sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|glpat-[A-Za-z0-9_-]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35})/[ĐÃ CHE]/g;
-    s/((?:password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key)[A-Za-z_]*\\?"?\s*[:=]\s*\\?"?)[^\s"\\,;]{6,}/$1\[ĐÃ CHE]/gi;
-  '
-}
 
 # Transcript JSONL của Claude Code → hội thoại dạng chữ (bỏ thinking, ảnh, bản sao; cắt output của tool).
 #   extract_claude <max_text> <max_tool_input> <max_tool_result>
@@ -136,10 +127,10 @@ if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ] && [ "${WORKLOG_RAW:-1}" = 1 ]; 
 fi
 
 # ---------- 4. Ghi mục nhật ký ----------
+entry=1
 case "$status" in
   ok)   body="$summary" ;;
-  skip) [ -n "$rawrel" ] || { [ -n "$offfile" ] && echo "$newsize" >"$offfile"; exit 0; }
-        body="- (không có việc đáng kể)" ;;
+  skip) if [ -n "$rawrel" ]; then body="- (không có việc đáng kể)"; else entry=0; fi ;;
   fail) body="- (CHƯA TÓM TẮT ĐƯỢC — xem transcript gốc bên dưới hoặc core.log)"
         [ -z "$rawrel" ] && body="$body
 $(grep -E '^commit ' -A1 "$material" | grep -vE '^(commit |--)' | sed 's/^/  - /')" ;;
@@ -147,12 +138,33 @@ esac
 [ -n "$rawrel" ] && body="$body
 - Transcript gốc: \`$rawrel\`"
 
+# Giờ trong tiêu đề: bắt đầu–kết thúc của session (không phải lúc ghi nhật ký)
+when=$(date '+%Y-%m-%d %H:%M')
+if [ -n "$START" ]; then
+  s=$(date -d "@$START" '+%Y-%m-%d %H:%M' 2>/dev/null || date -r "$START" '+%Y-%m-%d %H:%M' 2>/dev/null)
+  if [ -n "$s" ]; then
+    if [ "${s%% *}" = "$(date +%Y-%m-%d)" ]; then when="$s–$(date +%H:%M)"   # cùng ngày
+    else when="$s → $(date '+%Y-%m-%d %H:%M')"; fi                          # qua ngày
+  fi
+fi
+entryrel="$(date +%Y)/$(date +%m)-$host.md"
+
+# ---------- 5. Lưu trữ dài hạn: transcript gốc nén + một dòng meta (xem store.sh) ----------
+stage="$WORK/stage"
+extra=$(jq -nc --arg s "$status" --arg raw "$rawrel" --arg e "$entryrel" --arg w "$when" --argjson has "$entry" \
+  '{source: "hook", summary: $s, raw: (if $raw == "" then null else $raw end),
+    entry: (if $has == 1 then {file: $e, title: $w} else null end)}')
+stage_session "$TOOL" "$TRANSCRIPT" "${SID:-$(date +%Y%m%d-%H%M%S)}" "$stage" "$extra" "$START" "$CWD"
+
 lock_data || exit 1
-file="$DATA/$(date +%Y)/$(date +%m)-$host.md"
-mkdir -p "$(dirname "$file")"
-printf '## %s · %s · %s · %s\n%s\n\n' "$(date '+%Y-%m-%d %H:%M')" "$host" "$TOOL" "$project" "$body" >>"$file"
-[ -n "$rawrel" ] && { mkdir -p "$DATA/$(dirname "$rawrel")"; mv "$WORK/raw" "$DATA/$rawrel"; }
+if [ "$entry" = 1 ]; then
+  file="$DATA/$entryrel"; mkdir -p "$(dirname "$file")"
+  printf '## %s · %s · %s · %s\n%s\n\n' "$when" "$host" "$TOOL" "$project" "$body" >>"$file"
+  [ -n "$rawrel" ] && { mkdir -p "$DATA/$(dirname "$rawrel")"; mv "$WORK/raw" "$DATA/$rawrel"; }
+fi
+apply_stage "$stage"
 
 git -C "$DATA" add -A && git -C "$DATA" commit -qm "log: $host $TOOL $project" || { log "commit lỗi"; exit 1; }
+mark_archived "$stage"
 [ "$status" != fail ] && [ -n "$offfile" ] && echo "$newsize" >"$offfile"
 push_data

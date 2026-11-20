@@ -33,6 +33,8 @@ case "$EVENT" in
       lock_data && { pull_data; unlock_data; }
       # Tự cập nhật code worklog-tool (tắt bằng WORKLOG_AUTO_UPDATE=0)
       [ "${WORKLOG_AUTO_UPDATE:-1}" = 1 ] && git -C "$HERE/.." pull -q --ff-only
+      # Lưu trữ transcript còn sót (tối đa 1 lần/giờ, xem sweep.sh)
+      detach nohup "$HERE/sweep.sh" >>"$STATE/core.log" 2>&1 </dev/null &
     ) >/dev/null 2>&1 </dev/null &
     ;;
   agentstop)

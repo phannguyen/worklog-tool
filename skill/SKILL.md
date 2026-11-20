@@ -11,9 +11,12 @@ description: Nhật ký làm việc tự động từ Claude Code, Gemini CLI, C
 ```
 2026/11-laptop.md      ← mỗi tháng một file, mỗi máy một file
 2026/11-web.md         ← mục ghi từ chat claude.ai
-raw/2026/11/*          ← toàn bộ hội thoại của từng session (text; đuôi .gz.age là đã mã hoá)
+raw/2026/11/*          ← hội thoại đã làm gọn, đọc thẳng được (text; đuôi .gz.age là đã mã hoá)
+meta/2026/11-laptop.jsonl            ← số liệu mỗi session (thời gian, token, chi phí, tool…)
+archive/<cli>/2026/11/<máy>-<sid>.*  ← transcript GỐC đầy đủ, nén zstd/gzip (che bí mật, bỏ ảnh)
 tong-ket/2026-11.md    ← tổng kết tháng / năm
 ```
+Đây là kho dữ liệu dài hạn của người dùng: dùng để xem lại, thống kê, và làm bộ nhớ dài hạn. Mọi thứ phái sinh (tóm tắt, meta) đều tính lại được từ `archive/`.
 
 Định dạng một mục:
 ```
@@ -52,6 +55,26 @@ Khi người dùng nói "ghi nhật ký", hoặc vừa xong một việc đáng 
 4. Cần chi tiết hơn tóm tắt (lệnh cụ thể, cấu hình, lỗi gặp phải): mở file raw ghi trong mục — `grep -n "<từ khoá>" <file>` (đọc thẳng được, kể cả trên claude.ai); file `.gz.age` là đã mã hoá: `age -d -i ~/.config/worklog/key.txt <file> | zcat`, chỉ làm được trên máy có key. Chỉ đọc đoạn liên quan, file có thể lớn.
 5. Tổng kết tháng/năm: thêm thành quả chính, bài học, việc bỏ dở lâu. Đề nghị lưu vào `tong-ket/<kỳ>.md` rồi commit, push.
 
-## 4. Mục chưa tóm tắt được
+## 4. Thống kê (thời gian, token, chi phí)
+
+Mỗi dòng trong `meta/*.jsonl` là một lần lưu session: `tool host project sid start end` (UTC, kèm `tz` của máy), `active_min` (thời gian làm thật: cộng các quãng ≤ 15 phút giữa hai sự kiện), `wall_min`, `user_msgs`, `tool_calls` {tên: số lần}, `tokens` {model: {input, output (đã gồm thinking), thinking, cache_write, cache_read}}, `cost_usd` (Claude Code tự tính; CLI khác là null), `lines_added/removed`, `branch`, `kind` (`main` | `subagent` — subagent của Codex như `guardian` tốn token nhưng không phải session làm việc), `summary`, `entry` (mục nhật ký tương ứng), `archive`.
+
+Một session có thể có nhiều dòng (resume, sweep): **gộp theo (tool, sid), dòng sau đè dòng trước**. Mẫu:
+```bash
+cat ~/worklog/meta/2026/*.jsonl | jq -s '
+  group_by(.tool + .sid) | map(reduce .[] as $x ({}; . + $x))
+  | map(select(.kind != "subagent"))
+  | group_by(.project) | map({project: .[0].project, sessions: length,
+      gio: ((map(.active_min // 0) | add) / 60 | . * 10 | round / 10),
+      usd: (map(.cost_usd // 0) | add | . * 100 | round / 100),
+      out_tok: ([.[].tokens[]?.output] | add)}) | sort_by(-.gio)'
+```
+- Token: báo cáo từng loại riêng, đừng cộng thành một số (cache_read thường chiếm > 95% nhưng rẻ hơn nhiều). Tỉ lệ cache hit = cache_read / (input + cache_write + cache_read).
+- Chi phí CLI khác Claude: chỉ ước tính khi người dùng hỏi, ghi rõ là ước tính và nguồn bảng giá.
+- Trình bày: bảng hoặc biểu đồ, có so sánh kỳ trước nếu có dữ liệu. Ghi chú dữ liệu trước ngày bắt đầu lưu meta có thể thiếu.
+
+Cần đọc transcript gốc: `zstd -dc <file>.zst | jq …` (hoặc `zcat` với `.gz`; `.age` thì `age -d -i ~/.config/worklog/key.txt <file> | zstd -dc`). File có thể lớn — lọc bằng jq/grep, đừng đọc hết.
+
+## 5. Mục chưa tóm tắt được
 
 Mục có dòng `(CHƯA TÓM TẮT ĐƯỢC …)` là lúc tóm tắt bị lỗi (hết credit, mất mạng, timeout). Khi người dùng nhờ, hoặc khi gặp trong lúc tổng kết: đọc file raw của mục đó, viết lại phần gạch đầu dòng theo định dạng trên (giữ dòng Transcript gốc), commit, push. Nguyên nhân lỗi xem ở `~/.local/state/worklog/core.log`.

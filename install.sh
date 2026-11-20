@@ -76,11 +76,14 @@ set_json_hooks() {
 # 3a. Claude Code
 if command -v claude >/dev/null; then
   rm -f "$HOME/.claude/hooks/worklog.sh"                       # bản v1
+  # cleanupPeriodDays: Claude Code mặc định xoá transcript sau 30 ngày — giữ 1 năm để sweep kịp lưu trữ
+  # (chỉ đặt khi người dùng chưa tự cấu hình).
   set_json_hooks "$HOME/.claude/settings.json" '
     .hooks.SessionStart += [{"hooks":[{"type":"command","command":"\"\($hook)\" claude start"}]}]
-  | .hooks.SessionEnd   += [{"hooks":[{"type":"command","command":"\"\($hook)\" claude end"}]}]' \
+  | .hooks.SessionEnd   += [{"hooks":[{"type":"command","command":"\"\($hook)\" claude end"}]}]
+  | .cleanupPeriodDays //= 365' \
     && { mkdir -p "$HOME/.claude/skills"; ln -sfn "$TOOL_DIR/skill" "$HOME/.claude/skills/worklog"
-         ok "Claude Code: hook + skill"; }
+         ok "Claude Code: hook + skill (giữ transcript $(jq -r .cleanupPeriodDays "$HOME/.claude/settings.json") ngày)"; }
 else skip "Claude Code: không có"; fi
 
 # 3b. Gemini CLI
@@ -128,6 +131,11 @@ command -v codex  >/dev/null && put_note "${CODEX_HOME:-$HOME/.codex}/AGENTS.md"
 git -C "$DATA" push --dry-run -q >/dev/null 2>&1 \
   && ok "Push được lên repo dữ liệu" \
   || fail "Chưa push được repo dữ liệu. Kiểm tra SSH key:  ssh -T git@github.com"
+
+# 6. Lưu trữ transcript cũ còn trên máy (chạy lại không lưu trùng)
+echo "  … lưu trữ transcript Claude Code / Codex có sẵn trên máy (lần đầu có thể mất vài phút)"
+"$TOOL_DIR/hooks/sweep.sh" --all && ok "Lưu trữ xong: $DATA/archive/, số liệu: $DATA/meta/" \
+  || warn "Lưu trữ chưa xong — xem log, hook mở session sẽ thử lại"
 
 echo
 echo "Xong. Nhật ký của máy này: $DATA/$(date +%Y)/$(date +%m)-$(hostname -s).md (transcript gốc: $DATA/raw/)"
