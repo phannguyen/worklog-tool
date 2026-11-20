@@ -29,6 +29,20 @@ if [ ! -d "$DATA/.git" ]; then
   [ $# -ge 1 ] || fail "Chưa có $DATA. Chạy lại kèm URL repo dữ liệu private:  $0 git@github.com:<user>/worklog.git"
   git clone -q "$1" "$DATA" || fail "Không clone được $1"
 fi
+# Danh tính commit riêng cho repo nhật ký (không dùng email công ty trong git global).
+#   WORKLOG_GIT_EMAIL / WORKLOG_GIT_NAME, hoặc hỏi khi chạy tay; đã đặt rồi thì giữ nguyên.
+if [ -z "$(git -C "$DATA" config --local user.email)" ]; then
+  email="${WORKLOG_GIT_EMAIL:-}"
+  if [ -z "$email" ] && [ -t 0 ]; then
+    read -rp "  Email cho commit nhật ký [$(git config --global user.email)]: " email
+  fi
+  email="${email:-$(git config --global user.email)}"
+  [ -n "$email" ] || fail "Chưa có email cho git. Đặt WORKLOG_GIT_EMAIL=<email> rồi chạy lại"
+  git -C "$DATA" config user.email "$email"
+  name="${WORKLOG_GIT_NAME:-$(git config --global user.name)}"
+  git -C "$DATA" config user.name "${name:-$(whoami)}"
+fi
+ok "Commit nhật ký dưới tên: $(git -C "$DATA" config user.name) <$(git -C "$DATA" config user.email)>"
 if ! git -C "$DATA" rev-parse --verify -q HEAD >/dev/null; then
   printf '# Worklog\n\nNhật ký làm việc tự động từ các AI coding agent. Công cụ: worklog-tool.\n' > "$DATA/README.md"
   git -C "$DATA" add README.md && git -C "$DATA" commit -qm "khởi tạo worklog"

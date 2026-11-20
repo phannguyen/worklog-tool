@@ -64,9 +64,10 @@ git clone https://github.com/<owner>/worklog-tool.git ~/worklog-tool
 | `WORKLOG_SUMMARIZER` | tự chọn | `claude`, `gemini` hoặc `codex` — cố định CLI dùng để tóm tắt |
 | `WORKLOG_CLAUDE_MODEL` | `haiku` | Model khi tóm tắt bằng Claude |
 | `WORKLOG_RAW` | `1` | `0` = không lưu transcript gốc, chỉ tóm tắt |
-| `WORKLOG_RAW_MAX` | `20000000` | Bỏ qua bản raw (sau nén) lớn hơn số byte này |
+| `WORKLOG_RAW_MAX` | `20000000` | Bỏ qua file raw lớn hơn số byte này (chỉ giữ tóm tắt) |
 | `WORKLOG_AGE_RECIPIENT` | — | (Tuỳ chọn) public key `age1...` để mã hoá file raw thành `.gz.age` — khi đó claude.ai không đọc được raw |
 | `WORKLOG_AGE_RECIPIENTS_FILE` | — | Hoặc file chứa nhiều public key `age` |
+| `WORKLOG_GIT_EMAIL` | hỏi khi cài | Email commit cho repo nhật ký (đặt riêng, không ảnh hưởng git global) |
 | `WORKLOG_AUTO_UPDATE` | `1` | `0` = không tự `git pull` code `worklog-tool` khi mở session |
 
 Biến môi trường phải có trong môi trường mà CLI chạy (ví dụ đặt trong `~/.bashrc` / `~/.zshrc`).
