@@ -19,6 +19,7 @@ group_by(.tool + ":" + .sid)
     mode: (.mode // "interactive"),
     kind: (.kind // "main"),
     how: (.active_by_hour // {}),
+    days: (.active_by_day // null),
     entry: (.entry.file // null)
   })
 | sort_by(.start)

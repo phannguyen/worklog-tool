@@ -232,3 +232,5 @@ git -C "$DATA" add -A && git -C "$DATA" commit -qm "log: $host $TOOL $project" |
 mark_archived "$stage"
 [ "$status" != fail ] && [ -n "$offfile" ] && echo "$newsize" >"$offfile"
 push_data
+unlock_data
+refresh_dashboard

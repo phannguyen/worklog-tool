@@ -63,12 +63,14 @@ Pipeline:
 
 ```bash
 ~/worklog-tool/hooks/stats.sh            # last 30 days: hours by project / CLI, tokens by model, cost, open items
-~/worklog-tool/hooks/stats.sh 2026-11 --project my-api
+~/worklog-tool/hooks/stats.sh 2026-11 --project my-api --host laptop
 ~/worklog-tool/hooks/stats.sh all --json # for your own processing
 ~/worklog-tool/hooks/dashboard.sh --open # self-contained HTML page, no network, at ~/.cache/worklog/dashboard.html
 ```
 
-The dashboard shows working hours by project over time, a weekday × hour heatmap, cost over time (interactive vs. automated), tokens by model with cache hit rate, open items by age and recent sessions, with period / project / CLI filters, light and dark themes. It is generated locally from `meta/` and `todo/` and is never uploaded anywhere. Only Claude Code records cost; other CLIs show `–`.
+The dashboard shows working hours by project over time (split by the day the work happened), a weekday × hour heatmap, cost over time (interactive vs. automated), hours per machine, tokens by model with cache hit rate, open items by age and recent sessions, with period / project / CLI / machine filters, light and dark themes. It is generated locally from `meta/` and `todo/` and is never uploaded anywhere; once you have created it, it is refreshed automatically after each logged session. Only Claude Code records cost; other CLIs show `–`.
+
+All numbers are derived from `archive/`. After an upgrade that adds new fields, `~/worklog-tool/hooks/reindex.sh` recomputes `meta/` for every archived session.
 
 ## Install
 

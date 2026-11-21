@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # worklog stats — thống kê nhanh trên terminal từ meta/*.jsonl.
-#   stats.sh [kỳ] [--project <tên>] [--json]
+#   stats.sh [kỳ] [--project <tên>] [--host <máy>] [--json]
 #   kỳ: 7d | 30d (mặc định) | 90d | YYYY-MM | YYYY | all
 HERE="$(cd "$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")" && pwd)"
 . "$HERE/lib.sh"
 . "$HERE/store.sh"
 
-period=30d; project=""; json=0
+period=30d; project=""; host=""; json=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --project) project="$2"; shift ;;
+    --host) host="$2"; shift ;;
     --json) json=1 ;;
     -h|--help) sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) period="$1" ;;
@@ -32,8 +33,8 @@ esac
 files=("$DATA"/meta/*/*.jsonl)
 [ -e "${files[0]}" ] || { echo "$(L "Chưa có số liệu trong" "No data yet in") $DATA/meta" >&2; exit 1; }
 
-data=$(cat "${files[@]}" | jq -s -f "$HERE/sessions.jq" | jq -c --arg from "$from" --arg to "$to" --arg p "$project" '
-  map(select(.start >= $from and .start < $to and ($p == "" or .project == $p)))
+data=$(cat "${files[@]}" | jq -s -f "$HERE/sessions.jq" | jq -c --arg from "$from" --arg to "$to" --arg p "$project" --arg h "$host" '
+  map(select(.start >= $from and .start < $to and ($p == "" or .project == $p) and ($h == "" or .host == $h)))
   | (map(select(.kind == "main" and .mode != "auto"))) as $work
   | def sumn: if all(. == null) then null else map(. // 0) | add end;   # null = không có dữ liệu (vd. chi phí Codex)
     def tok: [.[].tokens | to_entries[]] | group_by(.key) | map({model: .[0].key,
@@ -53,6 +54,12 @@ data=$(cat "${files[@]}" | jq -s -f "$HERE/sessions.jq" | jq -c --arg from "$fro
     by_project: ($work | group_by(.project) | map({project: .[0].project, sessions: length,
         hours: ((map(.active_min) | add) / 60), msgs: (map(.user_msgs) | add),
         tools: (map(.n_tool_calls) | add), cost: (map(.cost_usd) | sumn)}) | sort_by(-.hours)),
+    by_host: (group_by(.host) | map({host: .[0].host,
+        hours: ((map(select(.kind == "main" and .mode != "auto") | .active_min) | add // 0) / 60),
+        sessions: (map(select(.kind == "main" and .mode != "auto")) | length),
+        auto: (map(select(.mode == "auto")) | length),
+        projects: (map(.project) | unique | length), tools: (map(.tool) | unique),
+        cost: (map(.cost_usd) | sumn), last: (map(.end // .start) | max)}) | sort_by(-.hours)),
     by_tool: ($work | group_by(.tool) | map({tool: .[0].tool, sessions: length,
         hours: ((map(.active_min) | add) / 60)}) | sort_by(-.hours)),
     by_model: tok
@@ -65,7 +72,7 @@ if [ "$json" = 1 ]; then
 fi
 
 jq -r --arg lang "$WL_LANG" --arg label "$label" --arg proj "$project" --argjson nt "$(grep -c . <<<"$todos")" \
-      --arg oldest "$(head -1 <<<"$todos" | jq -r '.at[0:10] // empty' 2>/dev/null)" '
+      --arg host "$host" --arg oldest "$(head -1 <<<"$todos" | jq -r '.at[0:10] // empty' 2>/dev/null)" '
   def T($vi; $en): if $lang == "vi" then $vi else $en end;
   def r1: . * 10 | round / 10;
   def usd: if . == null then "–" else "$" + ((. * 100 | round / 100) | tostring) end;
@@ -73,7 +80,7 @@ jq -r --arg lang "$WL_LANG" --arg label "$label" --arg proj "$project" --argjson
                elif . >= 1e3 then "\(. / 1e3 | r1)K" else tostring end;
   def pad($n): tostring | if length < $n then . + (" " * ($n - length)) else .[0:$n] end;
   def lpad($n): tostring | if length < $n then (" " * ($n - length)) + . else . end;
-  "Worklog · \($label)\(if $proj != "" then " · " + $proj else "" end)",
+  "Worklog · \($label)\(if $proj != "" then " · " + $proj else "" end)\(if $host != "" then " · " + $host else "" end)",
   "",
   "\(T("Giờ làm việc"; "Working time")): \(.hours | r1) h · \(.sessions) session · \(.projects) \(T("dự án"; "projects")) · \(T("chi phí ghi nhận"; "recorded cost")): \(.cost | usd)"
     + (if .auto_sessions > 0 then " (\(T("chạy tự động"; "automated")): \(.auto_sessions) session, \(.cost_auto | usd))" else "" end),
@@ -81,6 +88,10 @@ jq -r --arg lang "$WL_LANG" --arg label "$label" --arg proj "$project" --argjson
   "\(T("Theo dự án"; "By project"))",
   "  \(T("dự án"; "project") | pad(28)) \("h" | lpad(6)) \("session" | lpad(8)) \(T("tin nhắn"; "msgs") | lpad(9)) \("tool" | lpad(6)) \(T("chi phí"; "cost") | lpad(9))",
   (.by_project[] | "  \(.project | pad(28)) \(.hours | r1 | lpad(6)) \(.sessions | lpad(8)) \(.msgs | lpad(9)) \(.tools | lpad(6)) \(.cost | usd | lpad(9))"),
+  "",
+  "\(T("Theo máy"; "By machine"))",
+  "  \(T("máy"; "machine") | pad(20)) \("h" | lpad(6)) \("session" | lpad(8)) \(T("tự động"; "auto") | lpad(8)) \(T("dự án"; "projects") | lpad(7)) \(T("chi phí"; "cost") | lpad(9))  \(T("CLI"; "CLIs") | pad(16)) \(T("lần cuối"; "last seen"))",
+  (.by_host[] | "  \(.host | pad(20)) \(.hours | r1 | lpad(6)) \(.sessions | lpad(8)) \(.auto | lpad(8)) \(.projects | lpad(7)) \(.cost | usd | lpad(9))  \(.tools | join(",") | pad(16)) \(.last | .[0:10])"),
   "",
   "\(T("Theo CLI"; "By CLI")): " + ([.by_tool[] | "\(.tool) \(.hours | r1) h (\(.sessions))"] | join(" · ")),
   "",

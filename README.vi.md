@@ -58,12 +58,14 @@ Luồng xử lý:
 
 ```bash
 ~/worklog-tool/hooks/stats.sh            # 30 ngày gần nhất: giờ làm theo dự án / CLI, token theo model, chi phí, việc còn dở
-~/worklog-tool/hooks/stats.sh 2026-11 --project my-api
+~/worklog-tool/hooks/stats.sh 2026-11 --project my-api --host laptop
 ~/worklog-tool/hooks/stats.sh all --json # để tự xử lý tiếp
 ~/worklog-tool/hooks/dashboard.sh --open # trang HTML tự chứa, không cần mạng, ở ~/.cache/worklog/dashboard.html
 ```
 
-Dashboard có: giờ làm theo dự án qua thời gian, heatmap thứ × giờ, chi phí theo thời gian (tự làm / chạy tự động), token theo model kèm cache hit, việc còn dở theo tuổi, các session gần nhất; lọc theo kỳ / dự án / CLI; giao diện sáng và tối. Trang được sinh tại máy từ `meta/` và `todo/`, không đẩy lên đâu cả. Chỉ Claude Code ghi chi phí; CLI khác hiện `–`.
+Dashboard có: giờ làm theo dự án qua thời gian (chia theo ngày làm thật), heatmap thứ × giờ, chi phí theo thời gian (tự làm / chạy tự động), giờ làm theo máy, token theo model kèm cache hit, việc còn dở theo tuổi, các session gần nhất; lọc theo kỳ / dự án / CLI / máy; giao diện sáng và tối. Trang được sinh tại máy từ `meta/` và `todo/`, không đẩy lên đâu cả; sau lần tạo đầu, trang tự cập nhật sau mỗi session được ghi. Chỉ Claude Code ghi chi phí; CLI khác hiện `–`.
+
+Mọi số liệu đều phái sinh từ `archive/`. Sau khi nâng cấp có trường mới, `~/worklog-tool/hooks/reindex.sh` tính lại `meta/` cho mọi session đã lưu.
 
 ## Cài đặt
 

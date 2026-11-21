@@ -12,12 +12,14 @@ def tick($t):
     .first = (.first // $t) | .last = ([.last // $t, $t] | max)
     | (if .prev != null and ($t - .prev) > 0 and ($t - .prev) <= 900 then
          .active += ($t - .prev)
-         | .how[.prev | localtime | strftime("%u-%H")] += ($t - .prev)   # giờ địa phương: thứ (1=T2) - giờ
+         | (.prev | localtime) as $lt
+         | .how[$lt | strftime("%u-%H")] += ($t - .prev)        # giờ địa phương: thứ (1=T2) - giờ
+         | .byday[$lt | strftime("%Y-%m-%d")] += ($t - .prev)   # ngày địa phương
        else . end)
     | .prev = $t
   end;
 
-def init: {first: null, last: null, prev: null, active: 0, how: {}, user: 0, tools: {}, tokens: {},
+def init: {first: null, last: null, prev: null, active: 0, how: {}, byday: {}, user: 0, tools: {}, tokens: {},
            cost: null, added: null, removed: null, cwd: null, branch: null, ver: null, entry: null,
            kind: "main", sub: null, parent: null};
 
@@ -95,6 +97,8 @@ def codex:
     active_min: ((.active / 60) | round),
     # phút làm thật theo "thứ-giờ" địa phương của máy (vd. "1-09" = thứ Hai 9h), cho heatmap
     active_by_hour: (.how | map_values(. / 60 * 10 | round / 10) | with_entries(select(.value > 0))),
+    # phút làm thật theo ngày địa phương — session kéo dài nhiều ngày được chia đúng ngày
+    active_by_day: (.byday | map_values(. / 60 * 10 | round / 10) | with_entries(select(.value > 0))),
     user_msgs: .user,
     tool_calls: .tools,
     n_tool_calls: ([.tools[]] | add // 0),

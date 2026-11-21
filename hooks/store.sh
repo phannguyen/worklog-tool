@@ -147,3 +147,9 @@ todo_event() {
     '{at: (if $at == "" then (now | floor | todate) else $at end), op: $op, id: $id,
       project: $p, text: $t, host: $h, sid: $sid}'
 }
+
+# Dashboard tự cập nhật sau khi có số liệu mới — chỉ khi người dùng đã từng tạo nó ở vị trí mặc định.
+refresh_dashboard() {
+  [ -f "${XDG_CACHE_HOME:-$HOME/.cache}/worklog/dashboard.html" ] || return 0
+  "$STORE_HERE/dashboard.sh" >/dev/null 2>>"$STATE/core.log" || log "tạo lại dashboard lỗi"
+}
