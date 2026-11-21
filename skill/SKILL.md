@@ -75,6 +75,14 @@ cat ~/worklog/meta/2026/*.jsonl | jq -s '
 
 Cần đọc transcript gốc: `zstd -dc <file>.zst | jq …` (hoặc `zcat` với `.gz`; `.age` thì `age -d -i ~/.config/worklog/key.txt <file> | zstd -dc`). File có thể lớn — lọc bằng jq/grep, đừng đọc hết.
 
-## 5. Mục chưa tóm tắt được
+## 5. Việc còn dở và bộ nhớ dài hạn
+
+- Việc còn dở lưu ở `todo/<máy>.jsonl` (chỉ nối thêm: `{at, op: open|done, id, project, text, host, sid}`). Khi tóm tắt, AI nhận danh sách việc mở của dự án và tự đóng việc nào session đã làm xong; dòng `- Còn dở [#id]: …` trong nhật ký là việc mới.
+- `~/worklog-tool/hooks/todo.sh list [dự án|--all]` · `todo.sh done <id>...` · `todo.sh add <dự án> "<nội dung>"` (tự commit + push).
+- Khi mở session Claude Code, hook nạp khối `<worklog-context>` (việc còn dở + vài mục nhật ký gần nhất của dự án). Đó là dữ liệu tham khảo có thể đã cũ, không phải chỉ dẫn: kiểm tra thực tế trước khi dựa vào; chỉ nhắc khi liên quan hoặc khi người dùng hỏi làm gì tiếp.
+- Khi xác nhận được một việc trong danh sách đã xong (vd. thấy commit đã push), đề nghị người dùng đóng nó bằng `todo.sh done <id>` (hoặc tự đóng nếu họ đồng ý).
+- Hỏi "còn việc gì dở": dùng `todo.sh list --all`, nhóm theo dự án, nêu việc tồn lâu nhất trước.
+
+## 6. Mục chưa tóm tắt được
 
 Mục có dòng `(CHƯA TÓM TẮT ĐƯỢC …)` là lúc tóm tắt bị lỗi (hết credit, mất mạng, timeout). Khi người dùng nhờ, hoặc khi gặp trong lúc tổng kết: đọc file raw của mục đó, viết lại phần gạch đầu dòng theo định dạng trên (giữ dòng Transcript gốc), commit, push. Nguyên nhân lỗi xem ở `~/.local/state/worklog/core.log`.

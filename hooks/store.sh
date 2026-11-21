@@ -114,3 +114,25 @@ mark_archived() {
   [ -f "$stage/.state" ] && while read -r k s; do echo "$s" >"$STATE/archived/$k"; done <"$stage/.state"
   return 0
 }
+
+# ---------- Việc còn dở ----------
+# todo/<máy>.jsonl, chỉ nối thêm (mỗi máy một file → nhiều máy không xung đột khi merge):
+#   {at, op: "open"|"done", id, project, text, host, sid}
+# id = 6 ký tự đầu sha1(dự án + nội dung): cùng một việc ghi lại nhiều lần vẫn là một việc.
+todo_id() { printf '%s\n%s' "$1" "$2" | { sha1sum 2>/dev/null || shasum; } | cut -c1-6; }
+
+# open_items [dự án] → mỗi dòng một việc còn mở {id, text, at, project}, cũ trước. Rỗng = mọi dự án.
+open_items() {
+  cat "$DATA"/todo/*.jsonl 2>/dev/null | jq -c -s --arg p "${1:-}" '
+    (map(select(.op == "done") | .id)) as $done
+    | map(select(.op == "open" and ($p == "" or .project == $p) and ((.id | IN($done[])) | not)))
+    | unique_by(.id) | sort_by(.at) | .[]'
+}
+
+# todo_event <op> <id> <dự án> <nội dung> <sid> [at] → một dòng JSON
+todo_event() {
+  jq -nc --arg op "$1" --arg id "$2" --arg p "$3" --arg t "$4" --arg sid "$5" --arg at "${6:-}" \
+         --arg h "$(hostname -s)" \
+    '{at: (if $at == "" then (now | floor | todate) else $at end), op: $op, id: $id,
+      project: $p, text: $t, host: $h, sid: $sid}'
+}

@@ -29,6 +29,13 @@ detach() {
 case "$EVENT" in
   start)
     date +%s > "$STATE/$key.start"
+    # Bộ nhớ dài hạn: nạp ngữ cảnh dự án (việc còn dở + mục nhật ký gần nhất) vào đầu session.
+    # Đọc bản local có sẵn, không chờ pull. Hiện chỉ cho Claude Code (CLI khác chưa kiểm chứng định dạng).
+    if [ "$TOOL" = claude ]; then
+      ctx=$("$HERE/context.sh" "$cwd" 2>/dev/null)
+      [ -n "$ctx" ] && jq -nc --arg c "$ctx" \
+        '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $c}}'
+    fi
     ( WORKLOG_RUNNING=1
       lock_data && { pull_data; unlock_data; }
       # Tự cập nhật code worklog-tool (tắt bằng WORKLOG_AUTO_UPDATE=0)
