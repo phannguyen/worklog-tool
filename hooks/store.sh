@@ -132,12 +132,60 @@ mark_archived() {
 # id = 6 ký tự đầu sha1(dự án + nội dung): cùng một việc ghi lại nhiều lần vẫn là một việc.
 todo_id() { printf '%s\n%s' "$1" "$2" | { sha1sum 2>/dev/null || shasum; } | cut -c1-6; }
 
-# open_items [dự án] → mỗi dòng một việc còn mở {id, text, at, project}, cũ trước. Rỗng = mọi dự án.
-open_items() {
-  cat "$DATA"/todo/*.jsonl 2>/dev/null | jq -c -s --arg p "${1:-}" '
-    (map(select(.op == "done") | .id)) as $done
-    | map(select(.op == "open" and ($p == "" or .project == $p) and ((.id | IN($done[])) | not)))
+# live_items <thư mục> <op mở> <op đóng> [dự án] → mỗi dòng một mục còn hiệu lực {id, text, at, project}, cũ trước.
+live_items() {
+  cat "$DATA/$1"/*.jsonl 2>/dev/null | jq -c -s --arg on "$2" --arg off "$3" --arg p "${4:-}" '
+    (map(select(.op == $off) | .id)) as $closed
+    | map(select(.op == $on and ($p == "" or .project == $p) and ((.id | IN($closed[])) | not)))
     | unique_by(.id) | sort_by(.at) | .[]'
+}
+# open_items [dự án] → việc còn mở. Rỗng = mọi dự án.
+open_items() { live_items todo open done "${1:-}"; }
+
+# ---------- Điều cần nhớ (bộ nhớ tri thức theo dự án) ----------
+# kb/<máy>.jsonl, chỉ nối thêm: {at, op: "add"|"drop", id, project, text, host, sid} — cùng cách với todo/.
+# Sự thật bền vững: cấu hình/hạ tầng, quy ước, cạm bẫy và cách tránh, lý do của quyết định quan trọng.
+kb_items() { live_items kb add drop "${1:-}"; }
+
+# journal_entries <dự án> <số mục> [độ dài tối đa mỗi mục] → các mục nhật ký gần nhất của dự án (mọi máy), cũ trước.
+journal_entries() {
+  local files=() f
+  while IFS= read -r f; do files+=("$f"); done < <(ls "$DATA"/20[0-9][0-9]/[01][0-9]-*.md 2>/dev/null | tail -n 36)
+  [ ${#files[@]} -gt 0 ] || return 0
+  perl -CSDA -Mutf8 -e '
+    my ($p, $n, $max) = (shift, shift, shift); my @e;
+    for my $f (@ARGV) {
+      open(my $h, "<", $f) or next; local $/; my $s = <$h>;
+      for my $b (split /^(?=## )/m, $s) {
+        next unless $b =~ /\A## ([^\n]+?) · [^·\n]+ · [^·\n]+ · ([^\n]+?)\s*$/m;
+        push @e, [$1, $b] if $2 eq $p;
+      }
+    }
+    @e = sort { $a->[0] cmp $b->[0] } @e;
+    splice(@e, 0, -$n) if @e > $n;
+    for (@e) { my $b = $_->[1]; $b =~ s/\s+\z//; $b = substr($b, 0, $max) . " …" if length $b > $max; print "$b\n\n"; }
+  ' "$1" "$2" "${3:-1500}" "${files[@]}"
+}
+
+# run_summarizer <chỉ dẫn> <file tư liệu> <thư mục tạm> → câu trả lời của AI ở stdout.
+# CLI có sẵn (claude → gemini → codex, hoặc WORKLOG_SUMMARIZER), chạy trong thư mục tạm, không tool, không lưu session.
+run_summarizer() {
+  local instr="$1" mat="$2" dir="$3" s="${WORKLOG_SUMMARIZER:-}" c
+  if [ -z "$s" ]; then
+    for c in claude gemini codex; do command -v "$c" >/dev/null && { s=$c; break; }; done
+  fi
+  ( cd "$dir" || exit 1
+    case "$s" in
+      claude) with_timeout 300 claude -p --model "${WORKLOG_CLAUDE_MODEL:-haiku}" \
+                --tools "" --no-session-persistence --strict-mcp-config --setting-sources user \
+                "$instr" <"$mat" ;;
+      gemini) with_timeout 300 gemini -p "$instr" <"$mat" ;;
+      codex)  { printf '%s\n\n----- DATA -----\n' "$instr"; cat "$mat"; } \
+                | with_timeout 300 codex exec --skip-git-repo-check --sandbox read-only \
+                    --output-last-message "$dir/out" - >/dev/null \
+                && cat "$dir/out" ;;
+      *) exit 127 ;;
+    esac )
 }
 
 # todo_event <op> <id> <dự án> <nội dung> <sid> [at] → một dòng JSON

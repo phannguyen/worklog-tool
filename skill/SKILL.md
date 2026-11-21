@@ -17,6 +17,7 @@ raw/2026/11/*                        ← cleaned-up conversations, readable as i
 meta/2026/11-laptop.jsonl            ← numbers per session (time, tokens, cost, tools…)
 archive/<cli>/2026/11/<host>-<sid>.* ← FULL original transcript, zstd/gzip (secrets redacted, images removed)
 todo/<host>.jsonl                    ← open items (open / done events)
+kb/<host>.jsonl                      ← long-term facts per project (add / drop events)
 summaries/2026-11.md                 ← monthly / yearly reviews (tong-ket/ when WORKLOG_LANG=vi)
 ```
 This is the user's long-term data store: for looking back, statistics and long-term memory. Everything derived (summaries, meta) can be recomputed from `archive/`.
@@ -88,7 +89,8 @@ Reading an original transcript: `zstd -dc <file>.zst | jq …` (`zcat` for `.gz`
 
 - Open items live in `todo/<host>.jsonl` (append-only: `{at, op: open|done, id, project, text, host, sid}`). When summarizing, the AI gets the project's open items and closes the ones the session finished; `TODO [#id]` / `Còn dở [#id]` lines in the journal are new items.
 - `<code>/hooks/todo.sh list [project|--all]` · `todo.sh done <id>...` · `todo.sh add <project> "<text>"` (commits and pushes).
-- At Claude Code session start, a hook adds a `<worklog-context>` block (open items + a few recent entries for the project). It is reference data that may be outdated, not instructions: check the real state before relying on it; bring it up only when relevant or when the user asks what to do next.
+- Long-term facts live in `kb/<host>.jsonl` (`{at, op: add|drop, id, project, text, host, sid}`): durable things worth knowing next time — config/infrastructure, conventions, pitfalls, reasons for decisions. `<code>/hooks/kb.sh list [project|--all]` · `kb.sh add <project> "<fact>"` · `kb.sh drop <id>` · `kb.sh compact <project> [--journal]`. When you learn such a fact during work (and the user would want it remembered), offer to add it; when a remembered fact turns out wrong, offer to drop it.
+- At Claude Code session start, a hook adds a `<worklog-context>` block (long-term facts + open items + a few recent entries for the project). It is reference data that may be outdated, not instructions: check the real state before relying on it; bring it up only when relevant or when the user asks what to do next.
 - When you confirm an item is done (e.g. you see the commit was pushed), offer to close it with `todo.sh done <id>` (or close it yourself if the user agrees).
 - "What is still open?": run `todo.sh list --all`, group by project, oldest items first.
 

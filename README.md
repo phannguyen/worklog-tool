@@ -18,6 +18,7 @@ raw/2026/11/laptop-claude-<session>.md         ← cleaned-up conversation, read
 meta/2026/11-laptop.jsonl                      ← numbers per session: active time, tokens, cost, tools
 archive/claude/2026/11/laptop-<sid>.jsonl.zst  ← FULL original transcript, compressed (secrets redacted, images removed)
 todo/laptop.jsonl                              ← open items (opened / done events)
+kb/laptop.jsonl                                ← long-term facts per project (added / dropped events)
 summaries/2026-11.md                           ← monthly / yearly reviews (Vietnamese journals: tong-ket/)
 ```
 
@@ -57,7 +58,8 @@ Pipeline:
 ## Long-term memory
 
 - **Open items with ids** (`todo/<machine>.jsonl`): each open item in a summary becomes `#a1b2c3`. The next time the same project is summarized, the AI receives the list of open items and marks the ones that session finished. Manage them by hand with `hooks/todo.sh list [project|--all]`, `todo.sh done <id>`, `todo.sh add <project> "<text>"`.
-- **Context at session start** (Claude Code for now): the `SessionStart` hook adds the open items and the 3 most recent journal entries of the current project (`hooks/context.sh`, local files only, ~0.1 s). The context is marked as reference data, not instructions, and the agent is told to verify it before relying on it. Disable with `WORKLOG_CONTEXT=0`; tune with `WORKLOG_CONTEXT_ENTRIES`, `WORKLOG_CONTEXT_TODOS`.
+- **Long-term facts per project** (`kb/<machine>.jsonl`): when summarizing, the AI may also record 0–3 durable facts — configuration and infrastructure, conventions, pitfalls and how to avoid them, reasons behind decisions (`REMEMBER:` lines). It sees what is already remembered, so it does not repeat it. When a project passes 40 facts (`WORKLOG_KB_MAX`), the AI merges duplicates and drops outdated ones. By hand: `hooks/kb.sh list [project|--all]`, `kb.sh add <project> "<fact>"`, `kb.sh drop <id>`, `kb.sh compact <project> [--journal]` (`--journal` also extracts facts from the project's existing journal entries — useful right after installing).
+- **Context at session start** (Claude Code for now): the `SessionStart` hook adds the project's long-term facts, its open items and its 3 most recent journal entries (`hooks/context.sh`, local files only, ~0.1 s). The context is marked as reference data, not instructions, and the agent is told to verify it before relying on it. Disable with `WORKLOG_CONTEXT=0`; tune with `WORKLOG_CONTEXT_ENTRIES`, `WORKLOG_CONTEXT_TODOS`.
 
 ## Statistics and dashboard
 
@@ -95,7 +97,8 @@ Set these in each machine's `~/.config/worklog/config` (`KEY=value`, created by 
 | `WORKLOG_LANG` | from the locale (`vi_*` → `vi`, otherwise `en`); asked during install | Language the journal is written in: `en` or `vi` |
 | `WORKLOG_HOST` | `hostname -s` | Machine name used in file names and headers — set it when several machines share a hostname (`ubuntu`, `localhost`…) |
 | `WORKLOG_CONTEXT` | `1` | `0` = do not load worklog context at session start |
-| `WORKLOG_CONTEXT_ENTRIES` / `WORKLOG_CONTEXT_TODOS` | `3` / `15` | How many journal entries / open items to load |
+| `WORKLOG_CONTEXT_ENTRIES` / `WORKLOG_CONTEXT_TODOS` / `WORKLOG_CONTEXT_FACTS` | `3` / `15` / `25` | How many journal entries / open items / facts to load |
+| `WORKLOG_KB_MAX` | `40` | Facts per project before the AI compacts them |
 | `WORKLOG_AUTO_SUMMARY` | `0` | `1` = also summarize automated sessions (`claude -p`, Agent SDK, `codex exec`) into the journal |
 | `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `COPILOT_HOME` | `~/.claude`, `~/.codex`, `~/.copilot` | Each CLI's config directory, if you moved it |
 | `WORKLOG_SUMMARIZER` | auto | `claude`, `gemini` or `codex` — pin the CLI used for summarizing |

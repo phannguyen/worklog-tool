@@ -51,6 +51,10 @@ msg() {
     en:done)  echo "Done (earlier item)" ;;
     vi:open_head) echo "----- VIỆC CÒN DỞ TỪ TRƯỚC CỦA DỰ ÁN (id: nội dung) -----" ;;
     en:open_head) echo "----- PREVIOUSLY OPEN ITEMS OF THIS PROJECT (id: text) -----" ;;
+    vi:kb)    echo "Nhớ" ;;
+    en:kb)    echo "Remember" ;;
+    vi:kb_head) echo "----- ĐIỀU ĐÃ GHI NHỚ VỀ DỰ ÁN (không ghi lại) -----" ;;
+    en:kb_head) echo "----- ALREADY REMEMBERED ABOUT THIS PROJECT (do not repeat) -----" ;;
     vi:open_end)  echo "----- HẾT DANH SÁCH. DƯỚI ĐÂY LÀ SESSION -----" ;;
     en:open_end)  echo "----- END OF LIST. THE SESSION FOLLOWS -----" ;;
   esac

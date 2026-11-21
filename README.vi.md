@@ -16,6 +16,7 @@ raw/2026/11/laptop-claude-<session>.md     ← hội thoại đã làm gọn, đ
 meta/2026/11-laptop.jsonl                  ← số liệu mỗi session: thời gian làm thật, token, chi phí, tool
 archive/claude/2026/11/laptop-<sid>.jsonl.zst  ← transcript GỐC đầy đủ, nén (đã che bí mật, bỏ ảnh)
 todo/laptop.jsonl                          ← việc còn dở (sự kiện mở / xong)
+kb/laptop.jsonl                            ← điều cần nhớ lâu dài theo dự án (sự kiện thêm / bỏ)
 tong-ket/2026-11.md                        ← tổng kết tháng / năm (nhật ký tiếng Anh: summaries/)
 ```
 
@@ -52,7 +53,8 @@ Luồng xử lý:
 ## Bộ nhớ dài hạn
 
 - **Việc còn dở có id** (`todo/<máy>.jsonl`): mỗi việc dở trong bản tóm tắt thành một mục `#a1b2c3`. Lần tóm tắt sau của cùng dự án, AI nhận danh sách việc đang mở và tự đánh dấu việc đã xong. Xem/đóng/thêm tay: `hooks/todo.sh list [dự án|--all]`, `todo.sh done <id>`, `todo.sh add <dự án> "<nội dung>"`.
-- **Nạp ngữ cảnh khi mở session** (hiện có cho Claude Code): hook `SessionStart` đưa vào đầu session các việc còn dở và 3 mục nhật ký gần nhất của dự án đang mở (`hooks/context.sh`, chỉ đọc file local, ~0,1 giây). Ngữ cảnh được đánh dấu là dữ liệu tham khảo, không phải chỉ dẫn. Tắt bằng `WORKLOG_CONTEXT=0`; chỉnh số lượng bằng `WORKLOG_CONTEXT_ENTRIES`, `WORKLOG_CONTEXT_TODOS`.
+- **Điều cần nhớ theo dự án** (`kb/<máy>.jsonl`): khi tóm tắt, AI ghi thêm 0–3 sự thật bền vững — cấu hình/hạ tầng, quy ước, cạm bẫy và cách tránh, lý do của quyết định (dòng `Nhớ:`). AI thấy những điều đã nhớ nên không ghi lặp. Khi một dự án vượt 40 điều (`WORKLOG_KB_MAX`), AI gộp trùng và bỏ điều lỗi thời. Làm tay: `hooks/kb.sh list [dự án|--all]`, `kb.sh add <dự án> "<điều>"`, `kb.sh drop <id>`, `kb.sh compact <dự án> [--journal]` (`--journal` rút thêm từ các mục nhật ký đã có của dự án — hữu ích ngay sau khi cài).
+- **Nạp ngữ cảnh khi mở session** (hiện có cho Claude Code): hook `SessionStart` đưa vào đầu session các điều cần nhớ, việc còn dở và 3 mục nhật ký gần nhất của dự án đang mở (`hooks/context.sh`, chỉ đọc file local, ~0,1 giây). Ngữ cảnh được đánh dấu là dữ liệu tham khảo, không phải chỉ dẫn. Tắt bằng `WORKLOG_CONTEXT=0`; chỉnh số lượng bằng `WORKLOG_CONTEXT_ENTRIES`, `WORKLOG_CONTEXT_TODOS`.
 
 ## Thống kê và dashboard
 
@@ -90,7 +92,8 @@ git clone https://github.com/<owner>/worklog-tool.git ~/worklog-tool
 | `WORKLOG_LANG` | theo locale (`vi_*` → `vi`, còn lại `en`); hỏi khi cài | Ngôn ngữ viết nhật ký: `vi` hoặc `en` |
 | `WORKLOG_HOST` | `hostname -s` | Tên máy trong tên file và tiêu đề — đặt khi nhiều máy trùng hostname (`ubuntu`, `localhost`…) |
 | `WORKLOG_CONTEXT` | `1` | `0` = không nạp ngữ cảnh worklog khi mở session |
-| `WORKLOG_CONTEXT_ENTRIES` / `WORKLOG_CONTEXT_TODOS` | `3` / `15` | Số mục nhật ký / việc còn dở được nạp |
+| `WORKLOG_CONTEXT_ENTRIES` / `WORKLOG_CONTEXT_TODOS` / `WORKLOG_CONTEXT_FACTS` | `3` / `15` / `25` | Số mục nhật ký / việc còn dở / điều cần nhớ được nạp |
+| `WORKLOG_KB_MAX` | `40` | Số điều cần nhớ mỗi dự án trước khi AI gộp lại |
 | `WORKLOG_AUTO_SUMMARY` | `0` | `1` = vẫn tóm tắt session chạy tự động (`claude -p`, Agent SDK, `codex exec`) vào nhật ký |
 | `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `COPILOT_HOME` | `~/.claude`, `~/.codex`, `~/.copilot` | Thư mục cấu hình của từng CLI, nếu bạn đặt khác mặc định |
 | `WORKLOG_SUMMARIZER` | tự chọn | `claude`, `gemini` hoặc `codex` — cố định CLI dùng để tóm tắt |
