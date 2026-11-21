@@ -24,7 +24,7 @@ WORK=$(mktemp -d); CLEANUP="$WORK $SLOCK"; trap 'rm -rf $CLEANUP' EXIT
 stage="$WORK/stage"; mkdir -p "$stage" "$STATE/archived"
 
 candidates() {
-  local c="$HOME/.claude/projects" x="${CODEX_HOME:-$HOME/.codex}/sessions"
+  local c="$CLAUDE_DIR/projects" x="${CODEX_HOME:-$HOME/.codex}/sessions"
   [ -d "$c" ] && find "$c" -name '*.jsonl' -type f -mmin +"$quiet" | sed 's/^/claude /'
   [ -d "$x" ] && find "$x" -name '*.jsonl' -type f -mmin +"$quiet" | sed 's/^/codex /'
 }
@@ -47,7 +47,7 @@ done < <(candidates)
 lock_data || exit 1
 apply_stage "$stage"
 git -C "$DATA" add -A -- meta archive \
-  && git -C "$DATA" commit -qm "archive: $(hostname -s) $n session" \
+  && git -C "$DATA" commit -qm "archive: $HOST $n session" \
   || { log "sweep: commit lỗi"; exit 1; }
 mark_archived "$stage"
 push_data

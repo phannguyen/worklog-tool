@@ -7,14 +7,14 @@
 set -euo pipefail
 
 TOOL_DIR="$(cd "$(dirname "$0")" && pwd)"
-DATA="${WORKLOG_DIR:-$HOME/worklog}"
+. "$TOOL_DIR/hooks/lib.sh"          # đọc cấu hình: DATA, HOST, CLAUDE_DIR, WL_LANG
 HOOK="$TOOL_DIR/hooks/hook.sh"
 ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 skip() { printf '  \033[90m–\033[0m %s\n' "$1"; }
 warn() { printf '  \033[33m!\033[0m %s\n' "$1"; }
 fail() { printf '  \033[31m✗\033[0m %s\n' "$1"; exit 1; }
 
-echo "Cài worklog trên máy: $(hostname -s)"
+echo "Cài worklog trên máy: $HOST"
 
 # 1. Công cụ bắt buộc
 for c in git jq; do
@@ -34,12 +34,12 @@ fi
 if [ -z "$(git -C "$DATA" config --local user.email)" ]; then
   email="${WORKLOG_GIT_EMAIL:-}"
   if [ -z "$email" ] && [ -t 0 ]; then
-    read -rp "  Email cho commit nhật ký [$(git config --global user.email)]: " email
+    read -rp "  Email cho commit nhật ký [$(git config --global user.email || true)]: " email
   fi
-  email="${email:-$(git config --global user.email)}"
+  email="${email:-$(git config --global user.email || true)}"
   [ -n "$email" ] || fail "Chưa có email cho git. Đặt WORKLOG_GIT_EMAIL=<email> rồi chạy lại"
   git -C "$DATA" config user.email "$email"
-  name="${WORKLOG_GIT_NAME:-$(git config --global user.name)}"
+  name="${WORKLOG_GIT_NAME:-$(git config --global user.name || true)}"
   git -C "$DATA" config user.name "${name:-$(whoami)}"
 fi
 ok "Commit nhật ký dưới tên: $(git -C "$DATA" config user.name) <$(git -C "$DATA" config user.email)>"
@@ -49,6 +49,25 @@ if ! git -C "$DATA" rev-parse --verify -q HEAD >/dev/null; then
   git -C "$DATA" push -q -u origin HEAD || fail "Không push được commit đầu lên repo dữ liệu"
 fi
 ok "Repo dữ liệu ở $DATA"
+
+# Cấu hình của máy này (KEY=value). Hook đọc file này vì CLI mở từ IDE/menu thường không có biến của ~/.bashrc.
+CONF="$WORKLOG_CONFIG"; mkdir -p "$(dirname "$CONF")"
+[ -f "$CONF" ] || printf '%s\n' "# Cấu hình worklog cho máy này (KEY=value). Biến môi trường cùng tên được ưu tiên." \
+                                "# Các biến: xem phần Tuỳ chỉnh trong README của worklog-tool." >"$CONF"
+conf_get() { grep -E "^$1=" "$CONF" | tail -1 | cut -d= -f2-; }
+conf_set() { grep -qE "^$1=" "$CONF" || printf '%s=%s\n' "$1" "$2" >>"$CONF"; }
+if [ -z "$(conf_get WORKLOG_LANG)" ]; then
+  lang="${WORKLOG_LANG:-}"
+  if [ -z "$lang" ] && [ -t 0 ]; then read -rp "  Ngôn ngữ viết nhật ký / journal language (vi|en) [$WL_LANG]: " lang; fi
+  case "$lang" in vi|en) ;; *) lang="$WL_LANG" ;; esac
+  conf_set WORKLOG_LANG "$lang"
+fi
+# Biến đang đặt lúc cài thì lưu lại để hook cũng thấy
+for k in WORKLOG_DIR WORKLOG_HOST WORKLOG_SUMMARIZER WORKLOG_CLAUDE_MODEL WORKLOG_AGE_RECIPIENT \
+         WORKLOG_AGE_RECIPIENTS_FILE CLAUDE_CONFIG_DIR CODEX_HOME COPILOT_HOME; do
+  [ -n "${!k:-}" ] && conf_set "$k" "${!k}"
+done
+ok "Cấu hình: $CONF (ngôn ngữ nhật ký: $(conf_get WORKLOG_LANG), tên máy: $HOST)"
 chmod +x "$TOOL_DIR"/hooks/*.sh
 
 # Gỡ hook worklog cũ rồi thêm hook mới vào một file JSON kiểu {hooks:{Event:[{hooks:[...]}]}}
@@ -75,15 +94,15 @@ set_json_hooks() {
 
 # 3a. Claude Code
 if command -v claude >/dev/null; then
-  rm -f "$HOME/.claude/hooks/worklog.sh"                       # bản v1
+  rm -f "$CLAUDE_DIR/hooks/worklog.sh"                       # bản v1
   # cleanupPeriodDays: Claude Code mặc định xoá transcript sau 30 ngày — giữ 1 năm để sweep kịp lưu trữ
   # (chỉ đặt khi người dùng chưa tự cấu hình).
-  set_json_hooks "$HOME/.claude/settings.json" '
+  set_json_hooks "$CLAUDE_DIR/settings.json" '
     .hooks.SessionStart += [{"hooks":[{"type":"command","command":"\"\($hook)\" claude start"}]}]
   | .hooks.SessionEnd   += [{"hooks":[{"type":"command","command":"\"\($hook)\" claude end"}]}]
   | .cleanupPeriodDays //= 365' \
-    && { mkdir -p "$HOME/.claude/skills"; ln -sfn "$TOOL_DIR/skill" "$HOME/.claude/skills/worklog"
-         ok "Claude Code: hook + skill (giữ transcript $(jq -r .cleanupPeriodDays "$HOME/.claude/settings.json") ngày)"; }
+    && { mkdir -p "$CLAUDE_DIR/skills"; ln -sfn "$TOOL_DIR/skill" "$CLAUDE_DIR/skills/worklog"
+         ok "Claude Code: hook + skill (giữ transcript $(jq -r .cleanupPeriodDays "$CLAUDE_DIR/settings.json") ngày)"; }
 else skip "Claude Code: không có"; fi
 
 # 3b. Gemini CLI
@@ -138,5 +157,5 @@ echo "  … lưu trữ transcript Claude Code / Codex có sẵn trên máy (lầ
   || warn "Lưu trữ chưa xong — xem log, hook mở session sẽ thử lại"
 
 echo
-echo "Xong. Nhật ký của máy này: $DATA/$(date +%Y)/$(date +%m)-$(hostname -s).md (transcript gốc: $DATA/raw/)"
-echo "Log lỗi (nếu có): ${XDG_STATE_HOME:-$HOME/.local/state}/worklog/core.log"
+echo "Xong. Nhật ký của máy này: $DATA/$(date +%Y)/$(date +%m)-$HOST.md (transcript gốc: $DATA/raw/)"
+echo "Log lỗi (nếu có): $STATE/core.log"

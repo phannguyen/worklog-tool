@@ -68,9 +68,17 @@ git clone https://github.com/<owner>/worklog-tool.git ~/worklog-tool
 
 ## Tuỳ chỉnh
 
-| Biến môi trường | Mặc định | Ý nghĩa |
+Đặt trong file `~/.config/worklog/config` của từng máy (dạng `KEY=value`, `install.sh` tạo sẵn), hoặc bằng biến môi trường cùng tên (được ưu tiên). Nên dùng file config: CLI mở từ IDE hoặc menu thường không đọc `~/.bashrc`.
+
+| Biến | Mặc định | Ý nghĩa |
 |---|---|---|
 | `WORKLOG_DIR` | `~/worklog` | Nơi clone repo dữ liệu |
+| `WORKLOG_LANG` | theo locale (`vi_*` → `vi`, còn lại `en`); hỏi khi cài | Ngôn ngữ viết nhật ký: `vi` hoặc `en` |
+| `WORKLOG_HOST` | `hostname -s` | Tên máy trong tên file và tiêu đề — đặt khi nhiều máy trùng hostname (`ubuntu`, `localhost`…) |
+| `WORKLOG_CONTEXT` | `1` | `0` = không nạp ngữ cảnh worklog khi mở session |
+| `WORKLOG_CONTEXT_ENTRIES` / `WORKLOG_CONTEXT_TODOS` | `3` / `15` | Số mục nhật ký / việc còn dở được nạp |
+| `WORKLOG_AUTO_SUMMARY` | `0` | `1` = vẫn tóm tắt session chạy tự động (`claude -p`, Agent SDK, `codex exec`) vào nhật ký |
+| `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `COPILOT_HOME` | `~/.claude`, `~/.codex`, `~/.copilot` | Thư mục cấu hình của từng CLI, nếu bạn đặt khác mặc định |
 | `WORKLOG_SUMMARIZER` | tự chọn | `claude`, `gemini` hoặc `codex` — cố định CLI dùng để tóm tắt |
 | `WORKLOG_CLAUDE_MODEL` | `haiku` | Model khi tóm tắt bằng Claude |
 | `WORKLOG_RAW` | `1` | `0` = không lưu transcript (`raw/`, `archive/`), chỉ tóm tắt + số liệu `meta/` |
@@ -80,7 +88,7 @@ git clone https://github.com/<owner>/worklog-tool.git ~/worklog-tool
 | `WORKLOG_GIT_EMAIL` | hỏi khi cài | Email commit cho repo nhật ký (đặt riêng, không ảnh hưởng git global) |
 | `WORKLOG_AUTO_UPDATE` | `1` | `0` = không tự `git pull` code `worklog-tool` khi mở session |
 
-Biến môi trường phải có trong môi trường mà CLI chạy (ví dụ đặt trong `~/.bashrc` / `~/.zshrc`).
+**Tên dự án** mặc định là tên thư mục gốc của repo git (các worktree tính chung với repo chính), ngoài git thì là tên thư mục. Hai repo trùng tên thư mục, hoặc muốn đặt tên khác: `git config worklog.project <tên>` trong repo đó.
 
 ## Bảo mật
 

@@ -25,8 +25,19 @@ sanitize() {
 # Số dòng JSON đọc được (để kiểm tra sanitize không làm hỏng transcript .jsonl)
 json_lines() { jq -nR '[inputs | fromjson? | 1] | length' 2>/dev/null; }
 
+# Tên dự án: `git config worklog.project <tên>` (đặt riêng từng repo, vd. khi hai repo trùng tên thư mục)
+# > tên thư mục gốc của repo (worktree tính theo repo chính) > tên thư mục.
 project_of() {
-  basename "$(git -C "$1" rev-parse --show-toplevel 2>/dev/null || echo "$1")"
+  local d="$1" p top common
+  if top=$(git -C "$d" rev-parse --show-toplevel 2>/dev/null); then
+    p=$(git -C "$d" config --get worklog.project 2>/dev/null)
+    [ -n "$p" ] && { echo "$p"; return; }
+    common=$(git -C "$d" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+    case "$common" in */.git) top="${common%/.git}" ;; esac
+    basename "$top"
+  else
+    basename "$d"
+  fi
 }
 
 # Nén (zstd, không có thì gzip) rồi mã hoá bằng age nếu đã cấu hình.
@@ -52,7 +63,7 @@ seal() {
 stage_session() {
   local tool="$1" src="$2" sid="$3" stage="$4" extra="${5:-}" hstart="${6:-}" hcwd="${7:-}"
   local host m cwd month project rel="" bytes=0 ext
-  host=$(hostname -s); [ -n "$extra" ] || extra='{}'
+  host="$HOST"; [ -n "$extra" ] || extra='{}'
   m='{}'
   if [ -n "$src" ] && [ -f "$src" ]; then
     m=$(jq -nRc --arg tool "$tool" -f "$STORE_HERE/meta.jq" <"$src" 2>/dev/null)
@@ -64,7 +75,7 @@ stage_session() {
     | .end   //= (if $hs == "" then null else (now | floor | todate) end)
     | .cwd = (if $hcwd == "" then .cwd else $hcwd end)' <<<"$m") || return 1   # khớp với tiêu đề nhật ký
   cwd=$(jq -r '.cwd // empty' <<<"$m")
-  case "$cwd" in "${TMPDIR:-/tmp}"/tmp.*|/tmp/tmp.*) return 2 ;; esac
+  case "$cwd" in */worklog-sum.*|/tmp/tmp.*) return 2 ;; esac        # session tóm tắt của chính worklog
   project=$(project_of "${cwd:-unknown}")
   month=$(jq -r '.start | fromdate | strflocaltime("%Y/%m")' <<<"$m" 2>/dev/null) || month=""
   [ -n "$month" ] || month=$(date +%Y/%m)
@@ -132,7 +143,7 @@ open_items() {
 # todo_event <op> <id> <dự án> <nội dung> <sid> [at] → một dòng JSON
 todo_event() {
   jq -nc --arg op "$1" --arg id "$2" --arg p "$3" --arg t "$4" --arg sid "$5" --arg at "${6:-}" \
-         --arg h "$(hostname -s)" \
+         --arg h "$HOST" \
     '{at: (if $at == "" then (now | floor | todate) else $at end), op: $op, id: $id,
       project: $p, text: $t, host: $h, sid: $sid}'
 }

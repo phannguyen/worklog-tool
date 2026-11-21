@@ -31,7 +31,7 @@ case "$cmd" in
     fi
     [ -s "$ev" ] || exit 1
     lock_data || exit 1
-    mkdir -p "$DATA/todo"; cat "$ev" >>"$DATA/todo/$(hostname -s).jsonl"
+    mkdir -p "$DATA/todo"; cat "$ev" >>"$DATA/todo/$HOST.jsonl"
     git -C "$DATA" add todo && git -C "$DATA" commit -qm "todo: $cmd $(jq -r '.id' "$ev" | tr '\n' ' ')" || exit 1
     push_data
     jq -r '"\(if .op == "done" then "Đã đóng" else "Đã thêm" end) #\(.id): \(.text)"' "$ev" ;;
