@@ -59,6 +59,17 @@ Pipeline:
 - **Open items with ids** (`todo/<machine>.jsonl`): each open item in a summary becomes `#a1b2c3`. The next time the same project is summarized, the AI receives the list of open items and marks the ones that session finished. Manage them by hand with `hooks/todo.sh list [project|--all]`, `todo.sh done <id>`, `todo.sh add <project> "<text>"`.
 - **Context at session start** (Claude Code for now): the `SessionStart` hook adds the open items and the 3 most recent journal entries of the current project (`hooks/context.sh`, local files only, ~0.1 s). The context is marked as reference data, not instructions, and the agent is told to verify it before relying on it. Disable with `WORKLOG_CONTEXT=0`; tune with `WORKLOG_CONTEXT_ENTRIES`, `WORKLOG_CONTEXT_TODOS`.
 
+## Statistics and dashboard
+
+```bash
+~/worklog-tool/hooks/stats.sh            # last 30 days: hours by project / CLI, tokens by model, cost, open items
+~/worklog-tool/hooks/stats.sh 2026-11 --project my-api
+~/worklog-tool/hooks/stats.sh all --json # for your own processing
+~/worklog-tool/hooks/dashboard.sh --open # self-contained HTML page, no network, at ~/.cache/worklog/dashboard.html
+```
+
+The dashboard shows working hours by project over time, a weekday × hour heatmap, cost over time (interactive vs. automated), tokens by model with cache hit rate, open items by age and recent sessions, with period / project / CLI filters, light and dark themes. It is generated locally from `meta/` and `todo/` and is never uploaded anywhere. Only Claude Code records cost; other CLIs show `–`.
+
 ## Install
 
 Requirements: `git`, `jq`, at least one of the CLIs above, and push access (e.g. an SSH key) to a git host. `zstd` is recommended (gzip is used otherwise); `age` is optional.

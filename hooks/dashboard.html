@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Worklog</title>
+<!-- worklog dashboard template: dashboard.sh replaces the data block below. Self-contained, no network. -->
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --border: rgba(11,11,11,0.10);
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --wash: rgba(11,11,11,0.04); --cell-zero: #f0efec;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6;
+  --other: #b5b3ab;
+  --q1: #cde2fb; --q2: #9ec5f4; --q3: #6da7ec; --q4: #3987e5; --q5: #256abf; --q6: #184f95; --q7: #0d366b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --border: rgba(255,255,255,0.10);
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --wash: rgba(255,255,255,0.05); --cell-zero: #232322;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9;
+    --other: #5f5e5a;
+    --q1: #104281; --q2: #184f95; --q3: #1c5cab; --q4: #256abf; --q5: #3987e5; --q6: #6da7ec; --q7: #9ec5f4;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --border: rgba(255,255,255,0.10);
+  --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --wash: rgba(255,255,255,0.05); --cell-zero: #232322;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9;
+  --other: #5f5e5a;
+  --q1: #104281; --q2: #184f95; --q3: #1c5cab; --q4: #256abf; --q5: #3987e5; --q6: #6da7ec; --q7: #9ec5f4;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink);
+       font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 48px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin-bottom: 16px; }
+h1 { font-size: 20px; margin: 0; font-weight: 600; }
+.sub { color: var(--muted); font-size: 13px; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 20px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: none; color: var(--ink-2); font: inherit; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button:hover { background: var(--wash); }
+.seg button[aria-pressed="true"] { color: var(--ink); font-weight: 600; background: var(--wash); }
+select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border);
+         border-radius: 8px; padding: 6px 8px; max-width: 220px; }
+label.chk { color: var(--ink-2); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.tile, .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.tile { padding: 14px 16px; }
+.tile .lab { color: var(--ink-2); font-size: 13px; }
+.tile .val { font-size: 26px; font-weight: 600; margin-top: 2px; }
+.tile.hero .val { font-size: 48px; line-height: 1.1; }
+.tile .delta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 16px; margin-bottom: 16px; }
+.card { padding: 16px; min-width: 0; margin-bottom: 16px; }
+.grid2 .card { margin-bottom: 0; }
+.card h2 { font-size: 15px; font-weight: 600; margin: 0; }
+.card .note { color: var(--muted); font-size: 12px; margin: 2px 0 10px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 8px; color: var(--ink-2); font-size: 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.empty { color: var(--muted); padding: 24px 0; text-align: center; }
+details { margin-top: 8px; }
+summary { color: var(--ink-2); font-size: 12px; cursor: pointer; }
+.tw { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+td.wrap { white-space: normal; min-width: 260px; }
+.pill { display: inline-block; font-size: 11px; color: var(--ink-2); border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; }
+#tip { position: fixed; pointer-events: none; z-index: 10; background: var(--surface); color: var(--ink);
+       border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px;
+       box-shadow: 0 4px 16px rgba(0,0,0,0.12); display: none; max-width: 280px; }
+#tip .h { color: var(--ink-2); margin-bottom: 4px; }
+#tip .r { display: flex; align-items: center; gap: 8px; }
+#tip .r b { font-variant-numeric: tabular-nums; min-width: 44px; }
+#tip .r i { width: 12px; height: 2px; display: inline-block; }
+#tip .r span { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 600px) { .tile.hero .val { font-size: 40px; } .seg button { padding: 6px 9px; } }
+</style>
+</head>
+<body>
+<main>
+  <header><h1 id="title">Worklog</h1><span class="sub" id="gen"></span></header>
+  <div class="filters" id="filters"></div>
+  <div class="tiles" id="tiles"></div>
+  <div class="card">
+    <h2 id="h-hours"></h2><p class="note" id="n-hours"></p>
+    <div class="legend" id="lg-hours"></div>
+    <div class="chart" id="c-hours"></div>
+    <details><summary data-t="table"></summary><div class="tw" id="t-hours"></div></details>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h2 id="h-heat"></h2><p class="note" id="n-heat"></p>
+      <div class="chart" id="c-heat"></div>
+      <details><summary data-t="table"></summary><div class="tw" id="t-heat"></div></details>
+    </div>
+    <div class="card">
+      <h2 id="h-cost"></h2><p class="note" id="n-cost"></p>
+      <div class="legend" id="lg-cost"></div>
+      <div class="chart" id="c-cost"></div>
+      <details><summary data-t="table"></summary><div class="tw" id="t-cost"></div></details>
+    </div>
+  </div>
+  <div class="card"><h2 id="h-models"></h2><p class="note" id="n-models"></p><div class="tw" id="t-models"></div></div>
+  <div class="card"><h2 id="h-todos"></h2><p class="note" id="n-todos"></p><div class="tw" id="t-todos"></div></div>
+  <div class="card"><h2 id="h-sessions"></h2><p class="note" id="n-sessions"></p><div class="tw" id="t-sessions"></div></div>
+</main>
+<div id="tip" role="tooltip"></div>
+<script id="worklog-data" type="application/json">__WORKLOG_DATA__</script>
+<script>
+"use strict";
+const DATA = JSON.parse(document.getElementById("worklog-data").textContent);
+const VI = DATA.lang === "vi";
+const T = {
+  title: ["Worklog", "Worklog"], gen: ["Tạo lúc", "Generated"], table: ["Xem bảng số liệu", "Show data table"],
+  p7: ["7 ngày", "7 days"], p30: ["30 ngày", "30 days"], p90: ["90 ngày", "90 days"], p365: ["12 tháng", "12 months"], pall: ["Tất cả", "All"],
+  allProjects: ["Mọi dự án", "All projects"], allTools: ["Mọi CLI", "All CLIs"], inclAuto: ["Gồm chi phí chạy tự động", "Include automated cost"],
+  hours: ["Giờ làm việc", "Working hours"], sessions: ["Session", "Sessions"], projects: ["Dự án", "Projects"],
+  cost: ["Chi phí ghi nhận", "Recorded cost"], output: ["Token output", "Output tokens"], open: ["Việc còn dở", "Open items"],
+  prev: ["so với kỳ trước", "vs previous period"], noPrev: ["kỳ trước không có số liệu", "no data for the previous period"],
+  hHours: ["Giờ làm việc theo dự án", "Working hours by project"],
+  nHours: ["Thời gian làm thật (cộng các quãng ≤ 15 phút giữa hai sự kiện), tính vào ngày bắt đầu session. Không gồm session chạy tự động.",
+           "Active time (sum of gaps ≤ 15 min between events), counted on the session's start day. Automated sessions excluded."],
+  hHeat: ["Giờ làm trong tuần", "When you work"], nHeat: ["Phút làm thật theo giờ địa phương của máy ghi.", "Active minutes by local hour of the recording machine."],
+  hCost: ["Chi phí theo thời gian", "Cost over time"], nCost: ["Chỉ Claude Code ghi chi phí; CLI khác không có số liệu.", "Only Claude Code records cost; other CLIs provide none."],
+  interactive: ["Tự làm", "Interactive"], auto: ["Chạy tự động", "Automated"],
+  hModels: ["Token theo model", "Tokens by model"], nModels: ["Cache hit = đọc cache / tổng input. Báo từng loại riêng: đọc cache rẻ hơn nhiều so với input thường.",
+           "Cache hit = cache read / all input. Each kind is reported separately: cache reads cost far less than regular input."],
+  hTodos: ["Việc còn dở", "Open items"], nTodos: ["Cũ nhất trước. Đóng bằng todo.sh done <id>.", "Oldest first. Close with todo.sh done <id>."],
+  hSessions: ["Session gần nhất", "Recent sessions"], nSessions: ["50 session mới nhất trong kỳ.", "Latest 50 sessions in the period."],
+  other: ["Khác", "Other"], none: ["Không có dữ liệu trong kỳ này.", "No data in this period."],
+  model: ["Model", "Model"], requests: ["Lượt gọi", "Requests"], input: ["Input", "Input"], cw: ["Ghi cache", "Cache write"], cr: ["Đọc cache", "Cache read"], hit: ["Cache hit", "Cache hit"],
+  project: ["Dự án", "Project"], item: ["Việc", "Item"], age: ["Số ngày", "Days"], since: ["Từ", "Since"],
+  start: ["Bắt đầu", "Start"], tool: ["CLI", "CLI"], mode: ["Kiểu", "Mode"], min: ["Phút", "Min"], msgs: ["Tin nhắn", "Msgs"], tcalls: ["Lệnh tool", "Tool calls"],
+  period: ["Kỳ", "Period"], day: ["Ngày", "Day"], week: ["Tuần từ", "Week of"], hour: ["Giờ", "Hour"],
+  days: [["T2","T3","T4","T5","T6","T7","CN"], ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]],
+};
+const t = k => T[k][VI ? 0 : 1];
+document.documentElement.lang = VI ? "vi" : "en";
+
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+const el = (tag, attrs = {}, text) => { const e = document.createElement(tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
+const NS = "http://www.w3.org/2000/svg";
+const sv = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const nf = new Intl.NumberFormat(VI ? "vi-VN" : "en-US", { maximumFractionDigits: 1 });
+const fmt1 = x => nf.format(Math.round(x * 10) / 10);
+const compact = x => x == null ? "–" : x >= 1e9 ? fmt1(x / 1e9) + "B" : x >= 1e6 ? fmt1(x / 1e6) + "M" : x >= 1e3 ? fmt1(x / 1e3) + "K" : String(Math.round(x));
+const usd = x => x == null ? "–" : "$" + (x >= 100 || (x >= 1 && Number.isInteger(x)) || x === 0 ? Math.round(x).toLocaleString("en-US") : x.toFixed(2));
+const sumN = a => a.some(x => x != null) ? a.reduce((s, x) => s + (x || 0), 0) : null;
+const dayKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const weekStart = d => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+const fmtDate = d => d.toLocaleDateString(VI ? "vi-VN" : "en-US", { day: "numeric", month: "short" });
+function niceMax(v) { if (v <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p; return 10 * p; }
+
+const tip = $("tip");
+function showTip(ev, head, rows) {
+  tip.replaceChildren(el("div", { class: "h" }, head));
+  for (const r of rows) { const d = el("div", { class: "r" }); const i = el("i"); i.style.background = r.color || "var(--muted)"; d.append(i, el("b", {}, r.value), el("span", {}, r.label)); tip.append(d); }
+  tip.style.display = "block";
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + w > innerWidth - 8) x = ev.clientX - w - 14;
+  if (y + h > innerHeight - 8) y = ev.clientY - h - 14;
+  tip.style.left = Math.max(8, x) + "px"; tip.style.top = Math.max(8, y) + "px";
+}
+const hideTip = () => { tip.style.display = "none"; };
+
+function table(container, cols, rows) {
+  if (!rows.length) { container.replaceChildren(el("div", { class: "empty" }, t("none"))); return; }
+  const tb = el("table"), thead = el("thead"), tr = el("tr");
+  for (const c of cols) tr.append(el("th", c.n ? { class: "n" } : {}, c.label));
+  thead.append(tr); tb.append(thead);
+  const body = el("tbody");
+  for (const r of rows) { const row = el("tr"); cols.forEach((c, i) => row.append(el("td", c.n ? { class: "n" } : c.wrap ? { class: "wrap" } : {}, r[i]))); body.append(row); }
+  tb.append(body); container.replaceChildren(tb);
+}
+
+// ---------- state ----------
+const S = { period: "90", project: "", tool: "", auto: true };
+{ const m = /(?:^#|&)p=(7|30|90|365|all)\b/.exec(location.hash); if (m) S.period = m[1]; }   // #p=30 — bookmarkable period
+const sessions = DATA.sessions.map(s => ({ ...s, d: new Date(s.start) }));
+const isWork = s => s.kind === "main" && s.mode !== "auto";
+
+function inRange(s, from, to) { return s.d >= from && s.d < to; }
+function range(offset = 0) {
+  const now = new Date();
+  if (S.period === "all") return offset ? null : [new Date(0), new Date(8.64e15)];
+  const n = +S.period, to = new Date(now.getTime() - offset * n * 864e5);
+  return [new Date(to.getTime() - n * 864e5), to];
+}
+function slice(offset = 0) {
+  const r = range(offset); if (!r) return null;
+  return sessions.filter(s => inRange(s, r[0], r[1]) && (!S.project || s.project === S.project) && (!S.tool || s.tool === S.tool));
+}
+
+// ---------- filters ----------
+function buildFilters() {
+  const f = $("filters"); f.replaceChildren();
+  const seg = el("div", { class: "seg", role: "group", "aria-label": t("period") });
+  for (const [k, lab] of [["7", "p7"], ["30", "p30"], ["90", "p90"], ["365", "p365"], ["all", "pall"]]) {
+    const b = el("button", { type: "button", "aria-pressed": String(S.period === k) }, t(lab));
+    b.onclick = () => { S.period = k; history.replaceState(null, "", "#p=" + k); buildFilters(); render(); };
+    seg.append(b);
+  }
+  f.append(seg);
+  const mkSel = (key, allLabel, values) => {
+    const s = el("select", { "aria-label": allLabel }); s.append(el("option", { value: "" }, allLabel));
+    for (const v of values) { const o = el("option", { value: v }, v); if (S[key] === v) o.selected = true; s.append(o); }
+    s.onchange = () => { S[key] = s.value; render(); };
+    return s;
+  };
+  const byHours = {}; for (const s of sessions) byHours[s.project] = (byHours[s.project] || 0) + (isWork(s) ? s.active_min : 0) + 0.001;
+  f.append(mkSel("project", t("allProjects"), Object.keys(byHours).sort((a, b) => byHours[b] - byHours[a])));
+  f.append(mkSel("tool", t("allTools"), [...new Set(sessions.map(s => s.tool))].sort()));
+  const lab = el("label", { class: "chk" }), cb = el("input", { type: "checkbox" }); cb.checked = S.auto;
+  cb.onchange = () => { S.auto = cb.checked; render(); };
+  lab.append(cb, document.createTextNode(t("inclAuto"))); f.append(lab);
+}
+
+// ---------- tiles ----------
+function totals(list) {
+  if (!list) return null;
+  const work = list.filter(isWork), costList = list.filter(s => S.auto || s.mode !== "auto");
+  return {
+    hours: work.reduce((a, s) => a + s.active_min, 0) / 60, sessions: work.length,
+    projects: new Set(work.map(s => s.project)).size,
+    cost: sumN(costList.map(s => s.cost_usd)),
+    output: costList.reduce((a, s) => a + Object.values(s.tokens).reduce((b, m) => b + (m.output || 0), 0), 0),
+  };
+}
+function renderTiles(cur, prev) {
+  const box = $("tiles"); box.replaceChildren();
+  const projTodos = DATA.todos.filter(x => !S.project || x.project === S.project);
+  const items = [
+    ["hours", fmt1(cur.hours) + " h", cur.hours, prev && prev.hours, true],
+    ["sessions", String(cur.sessions), cur.sessions, prev && prev.sessions],
+    ["cost", usd(cur.cost), cur.cost, prev && prev.cost],
+    ["output", compact(cur.output), cur.output, prev && prev.output],
+    ["open", String(projTodos.length), null, null],
+  ];
+  for (const [k, v, a, b, hero] of items) {
+    const d = el("div", { class: "tile" + (hero ? " hero" : "") });
+    d.append(el("div", { class: "lab" }, t(k)), el("div", { class: "val" }, v));
+    if (a != null && prev) {                       // "all" has no previous period: no delta line
+      let txt = t("noPrev");
+      if (b != null && b > 0) { const pct = Math.round((a - b) / b * 100); txt = `${pct > 0 ? "▲ +" : pct < 0 ? "▼ " : "= "}${pct === 0 ? "" : pct + "%"} ${t("prev")}`; }
+      d.append(el("div", { class: "delta" }, txt));
+    }
+    box.append(d);
+  }
+}
+
+// ---------- stacked columns ----------
+function buckets(list) {
+  const r = range(); const daily = S.period !== "all" && +S.period <= 31;
+  let from = r[0], to = r[1];
+  if (S.period === "all") { if (!list.length) return { daily, keys: [] }; from = list[0].d; to = new Date(); }
+  const keys = []; let x = daily ? new Date(from.getFullYear(), from.getMonth(), from.getDate()) : weekStart(from);
+  while (x < to) { keys.push(new Date(x)); x.setDate(x.getDate() + (daily ? 1 : 7)); }
+  return { daily, keys, keyOf: d => dayKey(daily ? d : weekStart(d)) };
+}
+function stacked(container, legendBox, tableBox, B, list, seriesOf, valueOf, series, colorOf, fmtV, unit) {
+  container.replaceChildren(); legendBox && legendBox.replaceChildren();
+  const idx = new Map(B.keys.map((k, i) => [dayKey(k), i]));
+  const vals = B.keys.map(() => ({}));
+  for (const s of list) { const i = idx.get(B.keyOf(s.d)); if (i == null) continue; const k = seriesOf(s), v = valueOf(s); if (v) vals[i][k] = (vals[i][k] || 0) + v; }
+  const totalsB = vals.map(o => Object.values(o).reduce((a, b) => a + b, 0));
+  if (!B.keys.length || !totalsB.some(v => v > 0)) { container.append(el("div", { class: "empty" }, t("none"))); tableBox.replaceChildren(); return; }
+  if (legendBox && series.length > 1) for (const k of series) { const sp = el("span"), i = el("i"); i.style.background = colorOf(k); sp.append(i, document.createTextNode(k)); legendBox.append(sp); }
+  const W = Math.max(280, container.clientWidth), H = 220, ml = 44, mr = 8, mt = 8, mb = 24, pw = W - ml - mr, ph = H - mt - mb;
+  const max = niceMax(Math.max(...totalsB)), y = v => mt + ph - v / max * ph;
+  const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" });
+  for (let i = 0; i <= 4; i++) {
+    const v = max * i / 4, yy = y(v);
+    svg.append(sv("line", { x1: ml, x2: W - mr, y1: yy, y2: yy, stroke: i ? css("--grid") : css("--axis"), "stroke-width": 1 }));
+    const tx = sv("text", { x: ml - 6, y: yy + 4, "text-anchor": "end" }); tx.textContent = fmtV(v); svg.append(tx);
+  }
+  const band = pw / B.keys.length, bw = Math.max(2, Math.min(24, band * 0.62));
+  const every = Math.max(1, Math.ceil(B.keys.length / Math.max(1, Math.floor(pw / 64))));
+  B.keys.forEach((k, i) => {
+    const cx = ml + band * i + band / 2, x0 = cx - bw / 2;
+    let acc = 0; const segs = series.filter(sk => vals[i][sk] > 0);
+    segs.forEach((sk, j) => {
+      const v = vals[i][sk], yTop = y(acc + v), yBot = y(acc); acc += v;
+      const top = j === segs.length - 1, gap = j > 0 ? 2 : 0, h = Math.max(0, yBot - yTop - gap);
+      if (h <= 0) return;
+      const r = top ? Math.min(4, h, bw / 2) : 0, yb = yBot - gap;
+      const d = `M${x0},${yb} V${yb - h + r} Q${x0},${yb - h} ${x0 + r},${yb - h} H${x0 + bw - r} Q${x0 + bw},${yb - h} ${x0 + bw},${yb - h + r} V${yb} Z`;
+      svg.append(sv("path", { d, fill: colorOf(sk) }));
+    });
+    if (i % every === 0) { const tx = sv("text", { x: cx, y: H - 6, "text-anchor": "middle" }); tx.textContent = fmtDate(k); svg.append(tx); }
+    const hit = sv("rect", { x: ml + band * i, y: mt, width: band, height: ph, fill: "transparent", tabindex: 0 });
+    const head = `${B.daily ? fmtDate(k) : t("week") + " " + fmtDate(k)} · ${fmtV(totalsB[i])}${unit}`;
+    const rows = series.filter(sk => vals[i][sk] > 0).reverse().map(sk => ({ color: colorOf(sk), value: fmtV(vals[i][sk]) + unit, label: sk }));
+    const on = ev => { hit.setAttribute("fill", css("--wash")); showTip(ev, head, rows); };
+    hit.addEventListener("pointermove", on);
+    hit.addEventListener("focus", () => { const b = hit.getBoundingClientRect(); on({ clientX: b.right, clientY: b.top + 20 }); });
+    hit.addEventListener("pointerleave", () => { hit.setAttribute("fill", "transparent"); hideTip(); });
+    hit.addEventListener("blur", () => { hit.setAttribute("fill", "transparent"); hideTip(); });
+    svg.append(hit);
+  });
+  container.append(svg);
+  table(tableBox, [{ label: B.daily ? t("day") : t("week") }, ...series.map(s => ({ label: s, n: 1 })), { label: "Σ", n: 1 }],
+        B.keys.map((k, i) => [dayKey(k), ...series.map(s => vals[i][s] ? fmtV(vals[i][s]) : ""), fmtV(totalsB[i])]).filter((r, i) => totalsB[i] > 0));
+}
+
+// ---------- heatmap ----------
+function heatmap(container, tableBox, list) {
+  container.replaceChildren();
+  const m = Array.from({ length: 7 }, () => new Array(24).fill(0));
+  for (const s of list) for (const k in s.how) { const [d, h] = k.split("-").map(Number); if (d >= 1 && d <= 7 && h >= 0 && h < 24) m[d - 1][h] += s.how[k]; }
+  const max = Math.max(...m.flat());
+  if (!max) { container.append(el("div", { class: "empty" }, t("none"))); tableBox.replaceChildren(); return; }
+  const steps = [1, 2, 3, 4, 5, 6, 7].map(i => css("--q" + i));
+  const W = Math.max(280, container.clientWidth), ml = 30, mt = 4, mb = 40, cw = (W - ml) / 24, ch = Math.min(26, Math.max(14, cw)), H = mt + ch * 7 + mb;
+  const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" });
+  const days = T.days[VI ? 0 : 1];
+  for (let d = 0; d < 7; d++) {
+    const tx = sv("text", { x: 0, y: mt + ch * d + ch / 2 + 4 }); tx.textContent = days[d]; svg.append(tx);
+    for (let h = 0; h < 24; h++) {
+      const v = m[d][h], c = v > 0 ? steps[Math.min(6, Math.floor(v / max * 7))] : css("--cell-zero");
+      const r = sv("rect", { x: ml + cw * h + 1, y: mt + ch * d + 1, width: Math.max(1, cw - 2), height: ch - 2, rx: 2, fill: c, tabindex: v > 0 ? 0 : -1 });
+      const on = ev => { r.setAttribute("stroke", css("--ink")); showTip(ev, `${days[d]} · ${String(h).padStart(2, "0")}:00`, [{ color: c, value: Math.round(v) + (VI ? " phút" : " min"), label: t("hours").toLowerCase() }]); };
+      r.addEventListener("pointermove", on);
+      r.addEventListener("focus", () => { const b = r.getBoundingClientRect(); on({ clientX: b.right, clientY: b.bottom }); });
+      r.addEventListener("pointerleave", () => { r.removeAttribute("stroke"); hideTip(); });
+      r.addEventListener("blur", () => { r.removeAttribute("stroke"); hideTip(); });
+      svg.append(r);
+    }
+  }
+  for (const h of [0, 3, 6, 9, 12, 15, 18, 21]) { const tx = sv("text", { x: ml + cw * h + cw / 2, y: mt + ch * 7 + 14, "text-anchor": "middle" }); tx.textContent = String(h); svg.append(tx); }
+  // scale legend
+  const ly = mt + ch * 7 + 24, lx = ml; const t0 = sv("text", { x: lx, y: ly + 10 }); t0.textContent = "0"; svg.append(t0);
+  steps.forEach((c, i) => svg.append(sv("rect", { x: lx + 14 + i * 18, y: ly + 1, width: 16, height: 10, rx: 2, fill: c })));
+  const t1 = sv("text", { x: lx + 14 + 7 * 18 + 4, y: ly + 10 }); t1.textContent = Math.round(max) + (VI ? " phút" : " min"); svg.append(t1);
+  container.append(svg);
+  table(tableBox, [{ label: t("day") }, ...Array.from({ length: 24 }, (_, h) => ({ label: String(h), n: 1 }))],
+        m.map((row, d) => [days[d], ...row.map(v => v ? String(Math.round(v)) : "")]));
+}
+
+// ---------- tables ----------
+function renderModels(list) {
+  const agg = {};
+  for (const s of list.filter(s => S.auto || s.mode !== "auto")) for (const [mdl, u] of Object.entries(s.tokens)) {
+    const a = agg[mdl] || (agg[mdl] = { req: [], input: 0, output: 0, cw: 0, cr: 0 });
+    a.req.push(u.requests ?? null); a.input += u.input || 0; a.output += u.output || 0; a.cw += u.cache_write || 0; a.cr += u.cache_read || 0;
+  }
+  const rows = Object.entries(agg).sort((a, b) => b[1].output - a[1].output).map(([mdl, a]) => {
+    const all = a.input + a.cw + a.cr;
+    return [mdl, compact(sumN(a.req)), compact(a.input), compact(a.output), compact(a.cw), compact(a.cr), all ? Math.round(a.cr / all * 100) + "%" : "–"];
+  });
+  table($("t-models"), [{ label: t("model") }, { label: t("requests"), n: 1 }, { label: t("input"), n: 1 }, { label: "Output", n: 1 }, { label: t("cw"), n: 1 }, { label: t("cr"), n: 1 }, { label: t("hit"), n: 1 }], rows);
+}
+function renderTodos() {
+  const now = Date.now();
+  const rows = DATA.todos.filter(x => !S.project || x.project === S.project).sort((a, b) => a.at < b.at ? -1 : 1)
+    .map(x => ["#" + x.id, x.project, x.text, x.at.slice(0, 10), String(Math.floor((now - new Date(x.at)) / 864e5))]);
+  table($("t-todos"), [{ label: "id" }, { label: t("project") }, { label: t("item"), wrap: 1 }, { label: t("since") }, { label: t("age"), n: 1 }], rows);
+}
+function renderSessions(list) {
+  const rows = list.slice().reverse().slice(0, 50).map(s => [
+    s.d.toLocaleString(VI ? "vi-VN" : "en-US", { dateStyle: "short", timeStyle: "short" }), s.project, s.tool,
+    s.kind !== "main" ? "subagent" : s.mode === "auto" ? t("auto") : t("interactive"),
+    String(s.active_min), String(s.user_msgs), String(s.n_tool_calls), usd(s.cost_usd)]);
+  table($("t-sessions"), [{ label: t("start") }, { label: t("project") }, { label: t("tool") }, { label: t("mode") }, { label: t("min"), n: 1 }, { label: t("msgs"), n: 1 }, { label: t("tcalls"), n: 1 }, { label: t("cost").split(" ")[0], n: 1 }], rows);
+}
+
+// ---------- render ----------
+function render() {
+  const cur = slice(), prev = slice(1);
+  renderTiles(totals(cur), totals(prev));
+  const work = cur.filter(isWork), B = buckets(cur);
+  // project series: top 7 by hours in the period, the rest folded into "Other"; colors follow the project, not the rank
+  const ph = {}; for (const s of work) ph[s.project] = (ph[s.project] || 0) + s.active_min;
+  const top = Object.keys(ph).sort((a, b) => ph[b] - ph[a]).slice(0, 7);
+  const colorIdx = {}; Object.keys(globalHours).forEach((p, i) => colorIdx[p] = i);
+  const other = t("other"), slots = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6", "--s7"];
+  // stable assignment: projects keep their slot across filters (by overall rank); collisions fall back to the next free slot
+  const used = new Set(), color = {};
+  for (const p of top.slice().sort((a, b) => colorIdx[a] - colorIdx[b])) { let i = colorIdx[p] % 7; while (used.has(i)) i = (i + 1) % 7; used.add(i); color[p] = css(slots[i]); }
+  const series = [...top, ...(Object.keys(ph).length > 7 ? [other] : [])];
+  stacked($("c-hours"), $("lg-hours"), $("t-hours"), B, work, s => top.includes(s.project) ? s.project : other, s => s.active_min / 60,
+          series, k => k === other ? css("--other") : color[k], fmt1, " h");
+  heatmap($("c-heat"), $("t-heat"), work);
+  const costList = cur.filter(s => S.auto || s.mode !== "auto");
+  stacked($("c-cost"), $("lg-cost"), $("t-cost"), B, costList, s => s.mode === "auto" ? t("auto") : t("interactive"), s => s.cost_usd || 0,
+          S.auto ? [t("interactive"), t("auto")] : [t("interactive")], k => k === t("auto") ? css("--s2") : css("--s1"), v => usd(v), "");
+  renderModels(cur); renderTodos(); renderSessions(cur);
+}
+const globalHours = {}; for (const s of sessions) if (isWork(s)) globalHours[s.project] = (globalHours[s.project] || 0) + s.active_min;
+Object.keys(globalHours).sort((a, b) => globalHours[b] - globalHours[a]).forEach(p => { const v = globalHours[p]; delete globalHours[p]; globalHours[p] = v; });
+
+for (const [id, k] of [["h-hours", "hHours"], ["n-hours", "nHours"], ["h-heat", "hHeat"], ["n-heat", "nHeat"], ["h-cost", "hCost"], ["n-cost", "nCost"],
+                       ["h-models", "hModels"], ["n-models", "nModels"], ["h-todos", "hTodos"], ["n-todos", "nTodos"], ["h-sessions", "hSessions"], ["n-sessions", "nSessions"]]) $(id).textContent = t(k);
+document.querySelectorAll("[data-t]").forEach(e => e.textContent = t(e.dataset.t));
+$("gen").textContent = `${t("gen")} ${new Date(DATA.generated).toLocaleString(VI ? "vi-VN" : "en-US")} · ${DATA.hosts.join(", ")}`;
+buildFilters(); render();
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(render, 150); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+</script>
+</body>
+</html>

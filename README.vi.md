@@ -54,6 +54,17 @@ Luồng xử lý:
 - **Việc còn dở có id** (`todo/<máy>.jsonl`): mỗi việc dở trong bản tóm tắt thành một mục `#a1b2c3`. Lần tóm tắt sau của cùng dự án, AI nhận danh sách việc đang mở và tự đánh dấu việc đã xong. Xem/đóng/thêm tay: `hooks/todo.sh list [dự án|--all]`, `todo.sh done <id>`, `todo.sh add <dự án> "<nội dung>"`.
 - **Nạp ngữ cảnh khi mở session** (hiện có cho Claude Code): hook `SessionStart` đưa vào đầu session các việc còn dở và 3 mục nhật ký gần nhất của dự án đang mở (`hooks/context.sh`, chỉ đọc file local, ~0,1 giây). Ngữ cảnh được đánh dấu là dữ liệu tham khảo, không phải chỉ dẫn. Tắt bằng `WORKLOG_CONTEXT=0`; chỉnh số lượng bằng `WORKLOG_CONTEXT_ENTRIES`, `WORKLOG_CONTEXT_TODOS`.
 
+## Thống kê và dashboard
+
+```bash
+~/worklog-tool/hooks/stats.sh            # 30 ngày gần nhất: giờ làm theo dự án / CLI, token theo model, chi phí, việc còn dở
+~/worklog-tool/hooks/stats.sh 2026-11 --project my-api
+~/worklog-tool/hooks/stats.sh all --json # để tự xử lý tiếp
+~/worklog-tool/hooks/dashboard.sh --open # trang HTML tự chứa, không cần mạng, ở ~/.cache/worklog/dashboard.html
+```
+
+Dashboard có: giờ làm theo dự án qua thời gian, heatmap thứ × giờ, chi phí theo thời gian (tự làm / chạy tự động), token theo model kèm cache hit, việc còn dở theo tuổi, các session gần nhất; lọc theo kỳ / dự án / CLI; giao diện sáng và tối. Trang được sinh tại máy từ `meta/` và `todo/`, không đẩy lên đâu cả. Chỉ Claude Code ghi chi phí; CLI khác hiện `–`.
+
 ## Cài đặt
 
 Yêu cầu: `git`, `jq`, ít nhất một CLI ở trên, SSH key với GitHub.
