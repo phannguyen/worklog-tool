@@ -29,6 +29,9 @@ case "${WORKLOG_LANG:-}" in
   *) case "${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}" in vi*) WL_LANG=vi ;; *) WL_LANG=en ;; esac ;;
 esac
 
+# Thông báo cho người dùng theo ngôn ngữ:  L "<tiếng Việt>" "<English>"
+L() { if [ "$WL_LANG" = vi ]; then printf '%s' "$1"; else printf '%s' "$2"; fi; }
+
 # Chuỗi ghi vào nhật ký theo ngôn ngữ.
 msg() {
   case "$WL_LANG:$1" in

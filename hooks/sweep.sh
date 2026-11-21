@@ -51,5 +51,5 @@ git -C "$DATA" add -A -- meta archive \
   || { log "sweep: commit lỗi"; exit 1; }
 mark_archived "$stage"
 push_data
-[ -t 1 ] && echo "Đã lưu $n session vào $DATA (archive/, meta/)"
+[ -t 1 ] && echo "$(L "Đã lưu $n session vào" "Archived $n sessions into") $DATA (archive/, meta/)"
 exit 0

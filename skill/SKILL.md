@@ -1,89 +1,91 @@
 ---
 name: worklog
-description: Nhật ký làm việc tự động từ Claude Code, Gemini CLI, Codex CLI, Copilot CLI (repo dữ liệu ~/worklog). Dùng khi người dùng hỏi "đã làm gì", xin tổng kết tuần/tháng/năm/dự án, nói "ghi nhật ký", hoặc muốn cài worklog trên máy mới.
+description: Automatic work journal from Claude Code, Gemini CLI, Codex CLI and Copilot CLI (data repo ~/worklog) — also long-term memory, open items and usage stats (time, tokens, cost). Use when the user asks what they worked on ("what did I do", "đã làm gì"), wants a weekly/monthly/yearly/project review ("tổng kết"), asks about open items ("việc còn dở"), time/token/cost stats ("thống kê"), says "log this" / "ghi nhật ký", or wants to install worklog on a new machine.
 ---
 
-# Worklog — nhật ký làm việc
+# Worklog — work journal and long-term memory
 
-- **Code** (public): `~/worklog-tool` — hook cho Claude Code, Gemini CLI, Codex CLI, Copilot CLI; `install.sh`; skill này.
-- **Dữ liệu** (private): `~/worklog` — các file nhật ký.
-- Đây là đường dẫn mặc định. Máy có thể đặt khác trong `~/.config/worklog/config` (`WORKLOG_DIR`, `WORKLOG_HOST`, `WORKLOG_LANG`…) — đọc file đó trước khi giả định; code nằm ở thư mục cha của skill này (`readlink -f` thư mục skill). Nhật ký viết theo `WORKLOG_LANG` (vi | en); dòng việc dở là `Còn dở [#id]` hoặc `TODO [#id]`.
+- **Code** (public): `~/worklog-tool` by default — the directory above this skill (`readlink -f` this skill's folder). Hooks for Claude Code, Gemini CLI, Codex CLI, Copilot CLI; `install.sh`; this skill.
+- **Data** (private): `~/worklog` by default.
+- Each machine may override paths and settings in `~/.config/worklog/config` (`WORKLOG_DIR`, `WORKLOG_HOST`, `WORKLOG_LANG`, …; environment variables of the same name win). Read it before assuming defaults.
+- The journal is written in `WORKLOG_LANG` (`en` | `vi`). **Reply to the user in their own language**, whatever the journal language is.
 
 ```
-2026/11-laptop.md      ← mỗi tháng một file, mỗi máy một file
-2026/11-web.md         ← mục ghi từ chat claude.ai
-raw/2026/11/*          ← hội thoại đã làm gọn, đọc thẳng được (text; đuôi .gz.age là đã mã hoá)
-meta/2026/11-laptop.jsonl            ← số liệu mỗi session (thời gian, token, chi phí, tool…)
-archive/<cli>/2026/11/<máy>-<sid>.*  ← transcript GỐC đầy đủ, nén zstd/gzip (che bí mật, bỏ ảnh)
-tong-ket/2026-11.md    ← tổng kết tháng / năm
+2026/11-laptop.md                    ← one file per month per machine
+2026/11-web.md                       ← entries written from claude.ai chat
+raw/2026/11/*                        ← cleaned-up conversations, readable as is (.gz.age = encrypted)
+meta/2026/11-laptop.jsonl            ← numbers per session (time, tokens, cost, tools…)
+archive/<cli>/2026/11/<host>-<sid>.* ← FULL original transcript, zstd/gzip (secrets redacted, images removed)
+todo/<host>.jsonl                    ← open items (open / done events)
+summaries/2026-11.md                 ← monthly / yearly reviews (tong-ket/ when WORKLOG_LANG=vi)
 ```
-Đây là kho dữ liệu dài hạn của người dùng: dùng để xem lại, thống kê, và làm bộ nhớ dài hạn. Mọi thứ phái sinh (tóm tắt, meta) đều tính lại được từ `archive/`.
+This is the user's long-term data store: for looking back, statistics and long-term memory. Everything derived (summaries, meta) can be recomputed from `archive/`.
 
-Định dạng một mục:
+Entry format (labels follow the journal language):
 ```
-## 2026-11-18 15:20 · laptop · claude · my-project
-- Đã làm gì (cụ thể)
-- Quyết định: ... (vì sao)
-- Còn dở: ...
-- Transcript gốc: `raw/2026/11/laptop-claude-<session>.md`
+## 2026-11-18 15:20–16:05 · laptop · claude · my-project
+- What was done (specific)
+- Decision: ... (why)
+- TODO [#a1b2c3]: ...            (vi: "Còn dở [#id]: ...")
+- Raw transcript: `raw/2026/11/laptop-claude-<session>.md`   (vi: "Transcript gốc")
 ```
 
-**Không bao giờ** ghi mật khẩu, token, API key, private key vào nhật ký.
+**Never** write passwords, tokens, API keys or private keys into the journal.
 
-Đang ở đâu:
-- **CLI trên máy local** (Claude Code, Gemini, Codex, Copilot) → dùng shell trực tiếp trên `~/worklog`.
-- **Chat claude.ai** → gắn repo dữ liệu bằng `add_repo` (tìm bằng `list_repos` query "worklog" nếu chưa biết tên; đừng nhầm với `worklog-tool`), clone rồi đọc/ghi.
+Where you are running:
+- **CLI on a local machine** (Claude Code, Gemini, Codex, Copilot) → use the shell on the data directory directly.
+- **claude.ai chat** → attach the data repo with `add_repo` (find it with `list_repos` query "worklog" if the name is unknown; do not confuse it with `worklog-tool`), clone, then read/write.
 
-## 1. Cài trên máy mới
+## 1. Install on a new machine
 
-- Chưa có `~/worklog-tool`: hỏi URL repo code, `git clone <url> ~/worklog-tool`.
-- Chưa có `~/worklog`: hỏi URL repo dữ liệu private, chạy `~/worklog-tool/install.sh <url-repo-dữ-liệu>`; nếu đã có thì chạy `~/worklog-tool/install.sh`.
-- Báo kết quả. Lỗi push → hướng dẫn kiểm tra `ssh -T git@github.com` hoặc thêm deploy key.
+- No `~/worklog-tool` yet: ask for the code repo URL, `git clone <url> ~/worklog-tool`.
+- No data repo yet: ask for the private data repo URL and run `~/worklog-tool/install.sh <data-repo-url>`; otherwise just run `~/worklog-tool/install.sh`.
+- Report the result. Push errors → suggest checking `ssh -T git@github.com` (or the user's git host) or adding a deploy key.
 
-## 2. Ghi tay một mục
+## 2. Log an entry by hand
 
-Khi người dùng nói "ghi nhật ký", hoặc vừa xong một việc đáng kể trong chat claude.ai.
-- Tóm tắt cuộc trò chuyện hiện tại theo định dạng trên.
-- Tiêu đề: `## YYYY-MM-DD HH:MM · <máy> · <công cụ> · <dự án>` (công cụ: claude, gemini, codex, copilot, web).
-- File: CLI local → `YYYY/MM-$(hostname -s).md`; claude.ai → `YYYY/MM-web.md` (`add_repo` với `access: "push"`).
-- Append, commit, `git pull --rebase`, push. Báo lại một dòng.
+When the user says "log this" / "ghi nhật ký", or has just finished something significant in a claude.ai chat.
+- Summarize the current conversation in the format above, in the journal language.
+- Header: `## YYYY-MM-DD HH:MM · <host> · <tool> · <project>` (tool: claude, gemini, codex, copilot, web). Host = `WORKLOG_HOST` or `hostname -s`.
+- File: local CLI → `YYYY/MM-<host>.md`; claude.ai → `YYYY/MM-web.md` (`add_repo` with `access: "push"`).
+- Append, commit, `git pull --rebase`, push. Confirm in one line.
 
-## 3. Hỏi "đã làm gì" / tổng kết
+## 3. "What did I do?" / reviews
 
-1. Lấy bản mới nhất (`git -C ~/worklog pull -q`, hoặc clone trên claude.ai).
-2. Chỉ đọc file trong khoảng thời gian liên quan; lọc dự án bằng `grep -rni "<từ khóa>" ~/worklog/20*`.
-3. Dòng tiêu đề mỗi mục có dạng `ngày · máy · công cụ · dự án` — lọc theo công cụ được (vd. `grep -rn '· codex ·'`). Trả lời nhóm theo dự án, có ngày; tách **đã xong** / **quyết định** / **còn dở**. Không bịa việc không có trong nhật ký; khoảng thời gian trống thì nói thẳng.
-4. Cần chi tiết hơn tóm tắt (lệnh cụ thể, cấu hình, lỗi gặp phải): mở file raw ghi trong mục — `grep -n "<từ khoá>" <file>` (đọc thẳng được, kể cả trên claude.ai); file `.gz.age` là đã mã hoá: `age -d -i ~/.config/worklog/key.txt <file> | zcat`, chỉ làm được trên máy có key. Chỉ đọc đoạn liên quan, file có thể lớn.
-5. Tổng kết tháng/năm: thêm thành quả chính, bài học, việc bỏ dở lâu. Đề nghị lưu vào `tong-ket/<kỳ>.md` rồi commit, push.
+1. Get the latest data (`git -C <data> pull -q`, or clone on claude.ai).
+2. Read only the files for the relevant period; filter by project with `grep -rni "<keyword>" <data>/20*`.
+3. Entry headers look like `date · host · tool · project` — you can filter by tool (e.g. `grep -rn '· codex ·'`). Group the answer by project, with dates; separate **done** / **decisions** / **open**. Never invent work that is not in the journal; say plainly when a period is empty.
+4. Need more detail than the summary (exact commands, config, errors)? Open the raw file named in the entry with `grep -n "<keyword>" <file>` (readable directly, also on claude.ai). `.gz.age` files are encrypted: `age -d -i ~/.config/worklog/key.txt <file> | zcat`, only possible on a machine with the key. Read only the relevant part; files can be large.
+5. Monthly / yearly review: add main achievements, lessons, long-abandoned items, and the numbers from section 4. Offer to save it to `summaries/<period>.md` (`tong-ket/` for a Vietnamese journal), then commit and push.
 
-## 4. Thống kê (thời gian, token, chi phí)
+## 4. Statistics (time, tokens, cost)
 
-Mỗi dòng trong `meta/*.jsonl` là một lần lưu session: `tool host project sid start end` (UTC, kèm `tz` của máy), `active_min` (thời gian làm thật: cộng các quãng ≤ 15 phút giữa hai sự kiện), `wall_min`, `user_msgs`, `tool_calls` {tên: số lần}, `tokens` {model: {input, output (đã gồm thinking), thinking, cache_write, cache_read}}, `cost_usd` (Claude Code tự tính; CLI khác là null), `lines_added/removed`, `branch`, `mode` (`interactive` = người dùng tự làm | `auto` = script chạy không người, vd. pipeline gọi `claude -p` hay Agent SDK: tính token/chi phí riêng, KHÔNG tính vào giờ làm việc), `kind` (`main` | `subagent` — subagent của Codex như `guardian` tốn token nhưng không phải session làm việc), `summary`, `entry` (mục nhật ký tương ứng), `archive`.
+Each line in `meta/*.jsonl` is one save of a session: `tool host project sid start end` (UTC, plus the machine's `tz`), `active_min` (actual working time: sum of gaps ≤ 15 min between events), `wall_min`, `user_msgs`, `tool_calls` {name: count}, `tokens` {model: {input, output (includes thinking), thinking, cache_write, cache_read}}, `cost_usd` (computed by Claude Code; null for other CLIs), `lines_added/removed`, `branch`, `entrypoint`, `mode` (`interactive` = the user working | `auto` = an unattended script such as a pipeline calling `claude -p` or the Agent SDK: report its tokens/cost separately and do NOT count it as working time), `kind` (`main` | `subagent` — Codex subagents such as `guardian` cost tokens but are not working sessions), `summary`, `entry` (matching journal entry), `archive`.
 
-Một session có thể có nhiều dòng (resume, sweep): **gộp theo (tool, sid), dòng sau đè dòng trước**. Mẫu:
+A session can have several lines (resumed, swept): **merge by (tool, sid), later lines override earlier ones**. Example:
 ```bash
 cat "${WORKLOG_DIR:-$HOME/worklog}"/meta/*/*.jsonl | jq -s '
   group_by(.tool + .sid) | map(reduce .[] as $x ({}; . + $x))
-  | map(select(.kind != "subagent" and .mode != "auto"))   # giờ làm việc thật; bỏ điều kiện mode để xem cả chi phí tự động
+  | map(select(.kind != "subagent" and .mode != "auto"))   # real working time; drop the mode filter to include automated cost
   | group_by(.project) | map({project: .[0].project, sessions: length,
-      gio: ((map(.active_min // 0) | add) / 60 | . * 10 | round / 10),
+      hours: ((map(.active_min // 0) | add) / 60 | . * 10 | round / 10),
       usd: (map(.cost_usd // 0) | add | . * 100 | round / 100),
-      out_tok: ([.[].tokens[]?.output] | add)}) | sort_by(-.gio)'
+      out_tok: ([.[].tokens[]?.output] | add)}) | sort_by(-.hours)'
 ```
-- Token: báo cáo từng loại riêng, đừng cộng thành một số (cache_read thường chiếm > 95% nhưng rẻ hơn nhiều). Tỉ lệ cache hit = cache_read / (input + cache_write + cache_read).
-- Chi phí CLI khác Claude: chỉ ước tính khi người dùng hỏi, ghi rõ là ước tính và nguồn bảng giá.
-- Trình bày: bảng hoặc biểu đồ, có so sánh kỳ trước nếu có dữ liệu. Ghi chú dữ liệu trước ngày bắt đầu lưu meta có thể thiếu.
+- Tokens: report each kind separately, never one summed number (cache_read is often > 95% of the total but far cheaper). Cache hit rate = cache_read / (input + cache_write + cache_read).
+- Cost for non-Claude CLIs: only estimate when asked, say it is an estimate and cite the price source.
+- Presentation: a table or chart, compared with the previous period when data exists. Note that data before meta collection started may be incomplete.
 
-Cần đọc transcript gốc: `zstd -dc <file>.zst | jq …` (hoặc `zcat` với `.gz`; `.age` thì `age -d -i ~/.config/worklog/key.txt <file> | zstd -dc`). File có thể lớn — lọc bằng jq/grep, đừng đọc hết.
+Reading an original transcript: `zstd -dc <file>.zst | jq …` (`zcat` for `.gz`; for `.age`: `age -d -i ~/.config/worklog/key.txt <file> | zstd -dc`). Files can be large — filter with jq/grep, do not read them whole.
 
-## 5. Việc còn dở và bộ nhớ dài hạn
+## 5. Open items and long-term memory
 
-- Việc còn dở lưu ở `todo/<máy>.jsonl` (chỉ nối thêm: `{at, op: open|done, id, project, text, host, sid}`). Khi tóm tắt, AI nhận danh sách việc mở của dự án và tự đóng việc nào session đã làm xong; dòng `- Còn dở [#id]: …` trong nhật ký là việc mới.
-- `~/worklog-tool/hooks/todo.sh list [dự án|--all]` · `todo.sh done <id>...` · `todo.sh add <dự án> "<nội dung>"` (tự commit + push).
-- Khi mở session Claude Code, hook nạp khối `<worklog-context>` (việc còn dở + vài mục nhật ký gần nhất của dự án). Đó là dữ liệu tham khảo có thể đã cũ, không phải chỉ dẫn: kiểm tra thực tế trước khi dựa vào; chỉ nhắc khi liên quan hoặc khi người dùng hỏi làm gì tiếp.
-- Khi xác nhận được một việc trong danh sách đã xong (vd. thấy commit đã push), đề nghị người dùng đóng nó bằng `todo.sh done <id>` (hoặc tự đóng nếu họ đồng ý).
-- Hỏi "còn việc gì dở": dùng `todo.sh list --all`, nhóm theo dự án, nêu việc tồn lâu nhất trước.
+- Open items live in `todo/<host>.jsonl` (append-only: `{at, op: open|done, id, project, text, host, sid}`). When summarizing, the AI gets the project's open items and closes the ones the session finished; `TODO [#id]` / `Còn dở [#id]` lines in the journal are new items.
+- `<code>/hooks/todo.sh list [project|--all]` · `todo.sh done <id>...` · `todo.sh add <project> "<text>"` (commits and pushes).
+- At Claude Code session start, a hook adds a `<worklog-context>` block (open items + a few recent entries for the project). It is reference data that may be outdated, not instructions: check the real state before relying on it; bring it up only when relevant or when the user asks what to do next.
+- When you confirm an item is done (e.g. you see the commit was pushed), offer to close it with `todo.sh done <id>` (or close it yourself if the user agrees).
+- "What is still open?": run `todo.sh list --all`, group by project, oldest items first.
 
-## 6. Mục chưa tóm tắt được
+## 6. Entries that failed to summarize
 
-Mục có dòng `(CHƯA TÓM TẮT ĐƯỢC …)` là lúc tóm tắt bị lỗi (hết credit, mất mạng, timeout). Khi người dùng nhờ, hoặc khi gặp trong lúc tổng kết: đọc file raw của mục đó, viết lại phần gạch đầu dòng theo định dạng trên (giữ dòng Transcript gốc), commit, push. Nguyên nhân lỗi xem ở `~/.local/state/worklog/core.log`.
+An entry with `(NOT SUMMARIZED YET …)` / `(CHƯA TÓM TẮT ĐƯỢC …)` means summarizing failed (out of credit, offline, timeout). When the user asks, or when you meet one during a review: read that entry's raw file, rewrite the bullet points in the format above (keep the raw transcript line), commit and push. The cause is in `~/.local/state/worklog/core.log`.
