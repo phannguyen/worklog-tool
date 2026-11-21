@@ -31,7 +31,8 @@ case "$EVENT" in
     date +%s > "$STATE/$key.start"
     # Bộ nhớ dài hạn: nạp ngữ cảnh dự án (việc còn dở + mục nhật ký gần nhất) vào đầu session.
     # Đọc bản local có sẵn, không chờ pull. Hiện chỉ cho Claude Code (CLI khác chưa kiểm chứng định dạng).
-    if [ "$TOOL" = claude ]; then
+    # Bỏ qua session chạy tự động (claude -p / Agent SDK) để không chen ngữ cảnh vào prompt của script.
+    if [ "$TOOL" = claude ] && [[ "${CLAUDE_CODE_ENTRYPOINT:-}" != sdk* ]]; then
       ctx=$("$HERE/context.sh" "$cwd" 2>/dev/null)
       [ -n "$ctx" ] && jq -nc --arg c "$ctx" \
         '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $c}}'

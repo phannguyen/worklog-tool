@@ -38,6 +38,15 @@ clip() {
   else head -c 30000 "$f"; printf '\n\n[... lược bỏ phần giữa ...]\n\n'; tail -c 90000 "$f"; fi
 }
 
+# Session chạy tự động (claude -p / Agent SDK, codex exec): không tóm tắt vào nhật ký —
+# sweep.sh sẽ lưu transcript + số liệu theo lô (mode "auto"). WORKLOG_AUTO_SUMMARY=1 để vẫn tóm tắt.
+if [ "${WORKLOG_AUTO_SUMMARY:-0}" != 1 ]; then
+  ep="${CLAUDE_CODE_ENTRYPOINT:-}"
+  [ -z "$ep" ] && [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ] && \
+    ep=$(head -c 2000000 "$TRANSCRIPT" | grep -m1 -oE '"(entrypoint|originator)":"[^"]*"' | cut -d'"' -f4)
+  case "$ep" in sdk*|*exec*) exit 0 ;; esac
+fi
+
 # ---------- 1. Gom tư liệu ----------
 material="$WORK/material"; : > "$material"
 offfile=""; newsize=""

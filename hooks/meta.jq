@@ -15,7 +15,7 @@ def tick($t):
   end;
 
 def init: {first: null, last: null, prev: null, active: 0, user: 0, tools: {}, tokens: {},
-           cost: null, added: null, removed: null, cwd: null, branch: null, ver: null,
+           cost: null, added: null, removed: null, cwd: null, branch: null, ver: null, entry: null,
            kind: "main", sub: null, parent: null};
 
 # Claude Code: mỗi content block là một dòng riêng nhưng cùng chép lại `usage` của message,
@@ -25,6 +25,7 @@ def claude:
     if $r.type == "user" or $r.type == "assistant" then
       tick($r.timestamp | ts)
       | .cwd = (.cwd // $r.cwd) | .branch = ($r.gitBranch // .branch) | .ver = ($r.version // .ver)
+      | .entry = (.entry // $r.entrypoint)
       | (if $r.isSidechain == true then .kind = "subagent" else . end)
       | if $r.type == "user" then
           if $r.isMeta != true and $r.isSidechain != true
@@ -56,7 +57,7 @@ def codex:
     tick($r.timestamp | ts)
     | ($r.payload // {}) as $p
     | if $r.type == "session_meta" then
-        .cwd = $p.cwd | .branch = g($p.git.branch) | .ver = $p.cli_version
+        .cwd = $p.cwd | .branch = g($p.git.branch) | .ver = $p.cli_version | .entry = $p.originator
         | (g($p.source.subagent) as $s
            | if $s != null then .kind = "subagent"
                | .sub = (if ($s | type) != "object" then ($s | tostring)
@@ -99,6 +100,10 @@ def codex:
     cwd: .cwd,
     branch: .branch,
     client_version: .ver,
+    entrypoint: .entry,
+    # auto = chạy không người (claude -p / Agent SDK: "sdk-*"; codex exec), không tính là giờ làm việc
+    mode: (if .entry == null then null
+           elif (.entry | test("^sdk|exec"; "i")) then "auto" else "interactive" end),
     kind: .kind,
     subagent: .sub,
     parent: .parent

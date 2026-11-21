@@ -57,13 +57,13 @@ Khi người dùng nói "ghi nhật ký", hoặc vừa xong một việc đáng 
 
 ## 4. Thống kê (thời gian, token, chi phí)
 
-Mỗi dòng trong `meta/*.jsonl` là một lần lưu session: `tool host project sid start end` (UTC, kèm `tz` của máy), `active_min` (thời gian làm thật: cộng các quãng ≤ 15 phút giữa hai sự kiện), `wall_min`, `user_msgs`, `tool_calls` {tên: số lần}, `tokens` {model: {input, output (đã gồm thinking), thinking, cache_write, cache_read}}, `cost_usd` (Claude Code tự tính; CLI khác là null), `lines_added/removed`, `branch`, `kind` (`main` | `subagent` — subagent của Codex như `guardian` tốn token nhưng không phải session làm việc), `summary`, `entry` (mục nhật ký tương ứng), `archive`.
+Mỗi dòng trong `meta/*.jsonl` là một lần lưu session: `tool host project sid start end` (UTC, kèm `tz` của máy), `active_min` (thời gian làm thật: cộng các quãng ≤ 15 phút giữa hai sự kiện), `wall_min`, `user_msgs`, `tool_calls` {tên: số lần}, `tokens` {model: {input, output (đã gồm thinking), thinking, cache_write, cache_read}}, `cost_usd` (Claude Code tự tính; CLI khác là null), `lines_added/removed`, `branch`, `mode` (`interactive` = người dùng tự làm | `auto` = script chạy không người, vd. `claude -p` tạo bài của auto-newsroom: tính token/chi phí riêng, KHÔNG tính vào giờ làm việc), `kind` (`main` | `subagent` — subagent của Codex như `guardian` tốn token nhưng không phải session làm việc), `summary`, `entry` (mục nhật ký tương ứng), `archive`.
 
 Một session có thể có nhiều dòng (resume, sweep): **gộp theo (tool, sid), dòng sau đè dòng trước**. Mẫu:
 ```bash
 cat ~/worklog/meta/2026/*.jsonl | jq -s '
   group_by(.tool + .sid) | map(reduce .[] as $x ({}; . + $x))
-  | map(select(.kind != "subagent"))
+  | map(select(.kind != "subagent" and .mode != "auto"))   # giờ làm việc thật; bỏ điều kiện mode để xem cả chi phí tự động
   | group_by(.project) | map({project: .[0].project, sessions: length,
       gio: ((map(.active_min // 0) | add) / 60 | . * 10 | round / 10),
       usd: (map(.cost_usd // 0) | add | . * 100 | round / 100),
