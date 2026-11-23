@@ -47,7 +47,7 @@ Where you are running:
 
 When the user says "log this" / "ghi nhật ký", or has just finished something significant in a claude.ai chat.
 - Summarize the current conversation in the format above, in the journal language.
-- Header: `## YYYY-MM-DD HH:MM · <host> · <tool> · <project>` (tool: claude, gemini, codex, copilot, web). Host = `WORKLOG_HOST` or `hostname -s`.
+- Header: `## YYYY-MM-DD HH:MM · <host> · <tool> · <project>` (tool: claude, gemini, codex, copilot, web). Host = `WORKLOG_HOST`, else `hostname -s` (a distro-default hostname such as `fedora` gets a 4-char machine suffix, e.g. `fedora-95d7`); older entries may use the bare hostname.
 - File: local CLI → `YYYY/MM-<host>.md`; claude.ai → `YYYY/MM-web.md` (`add_repo` with `access: "push"`).
 - Append, commit, `git pull --rebase`, push. Confirm in one line.
 

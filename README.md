@@ -95,7 +95,7 @@ Set these in each machine's `~/.config/worklog/config` (`KEY=value`, created by 
 |---|---|---|
 | `WORKLOG_DIR` | `~/worklog` | Where the data repo is cloned |
 | `WORKLOG_LANG` | from the locale (`vi_*` → `vi`, otherwise `en`); asked during install | Language the journal is written in: `en` or `vi` |
-| `WORKLOG_HOST` | `hostname -s` | Machine name used in file names and headers — set it when several machines share a hostname (`ubuntu`, `localhost`…) |
+| `WORKLOG_HOST` | `hostname -s` | Machine name used in file names and headers. A distro-default hostname (`fedora`, `ubuntu`, `localhost`…) automatically gets a 4-char machine suffix (e.g. `fedora-95d7`) so machines never share a file |
 | `WORKLOG_CONTEXT` | `1` | `0` = do not load worklog context at session start |
 | `WORKLOG_CONTEXT_ENTRIES` / `WORKLOG_CONTEXT_TODOS` / `WORKLOG_CONTEXT_FACTS` | `3` / `15` / `25` | How many journal entries / open items / facts to load |
 | `WORKLOG_KB_MAX` | `40` | Facts per project before the AI compacts them |

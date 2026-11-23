@@ -19,8 +19,19 @@ STATE="${XDG_STATE_HOME:-$HOME/.local/state}/worklog"
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 mkdir -p "$STATE"
 
-# Tên máy trong tên file và tiêu đề. Đặt WORKLOG_HOST khi nhiều máy trùng hostname (vd. "ubuntu", "localhost").
-HOST="${WORKLOG_HOST:-$(hostname -s 2>/dev/null || hostname)}"
+# Tên máy trong tên file và tiêu đề. Hostname mặc định của distro (Fedora đặt "fedora", Ubuntu "ubuntu"…)
+# trùng nhau giữa các máy → hai máy ghi chung một file và conflict khi pull. Khi đó tự thêm 4 ký tự
+# định danh máy, lấy từ hash của /etc/machine-id (không lộ machine-id gốc). WORKLOG_HOST ghi đè tất cả.
+_wl_host() {
+  local h id; h=$(hostname -s 2>/dev/null || hostname)
+  case "$(printf '%s' "$h" | tr 'A-Z' 'a-z')" in
+    fedora|localhost|localhost-live|ubuntu|debian|archlinux|arch|linux|raspberrypi|pop-os|mint|manjaro|nixos|kali|"")
+      id=$(cat /etc/machine-id /var/lib/dbus/machine-id 2>/dev/null | head -1)
+      [ -n "$id" ] && h="$h-$(printf 'worklog:%s' "$id" | sha256sum | cut -c1-4)" ;;
+  esac
+  printf '%s' "$h"
+}
+HOST="${WORKLOG_HOST:-$(_wl_host)}"
 HOST=$(printf '%s' "$HOST" | tr -c 'A-Za-z0-9._-' '-')
 
 # Ngôn ngữ viết nhật ký: vi | en. Mặc định theo locale (vi_* → vi, còn lại → en).

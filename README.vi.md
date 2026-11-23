@@ -90,7 +90,7 @@ git clone https://github.com/<owner>/worklog-tool.git ~/worklog-tool
 |---|---|---|
 | `WORKLOG_DIR` | `~/worklog` | Nơi clone repo dữ liệu |
 | `WORKLOG_LANG` | theo locale (`vi_*` → `vi`, còn lại `en`); hỏi khi cài | Ngôn ngữ viết nhật ký: `vi` hoặc `en` |
-| `WORKLOG_HOST` | `hostname -s` | Tên máy trong tên file và tiêu đề — đặt khi nhiều máy trùng hostname (`ubuntu`, `localhost`…) |
+| `WORKLOG_HOST` | `hostname -s` | Tên máy trong tên file và tiêu đề. Hostname mặc định của distro (`fedora`, `ubuntu`, `localhost`…) tự được thêm 4 ký tự định danh máy (vd. `fedora-95d7`) để các máy không ghi chung file |
 | `WORKLOG_CONTEXT` | `1` | `0` = không nạp ngữ cảnh worklog khi mở session |
 | `WORKLOG_CONTEXT_ENTRIES` / `WORKLOG_CONTEXT_TODOS` / `WORKLOG_CONTEXT_FACTS` | `3` / `15` / `25` | Số mục nhật ký / việc còn dở / điều cần nhớ được nạp |
 | `WORKLOG_KB_MAX` | `40` | Số điều cần nhớ mỗi dự án trước khi AI gộp lại |
